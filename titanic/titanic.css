@@ -1,0 +1,9 @@
+﻿table {
+    width: auto;
+    margin: 20px auto;
+}
+
+.section.level5.collapse {
+	padding: 1px 4px;
+	background-color: #d9edf7;
+}

@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>9d311352-b5df-40d0-82f7-9ace8a1bee39</ProjectGuid>
+  </PropertyGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\crime\crime.R">
+      <Link>crime\crime.R</Link>
+    </Content>
+    <Content Include="..\fat\fat.R">
+      <Link>fat\fat.R</Link>
+    </Content>
+    <Content Include="..\fat\sparrow.R">
+      <Link>fat\sparrow.R</Link>
+    </Content>
+    <Content Include="..\titanic\titanic.R">
+      <Link>titanic\titanic.R</Link>
+    </Content>
+    <Content Include="..\titanic\titanic2.R">
+      <Link>titanic\titanic2.R</Link>
+    </Content>
+  </ItemGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties />
+    </VisualStudio>
+  </ProjectExtensions>
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\RTVS\Rules\rtvs.rules.props" Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\RTVS\Rules\rtvs.rules.props')" />
+  <Import Project="training.InMemory.Targets" Condition="Exists('training.InMemory.Targets')" />
+</Project>
