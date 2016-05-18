@@ -57,11 +57,16 @@ p img {
     margin: 2px auto;
 }
 
-table > .caption {
+table + .caption {
     text-align: center;
-    margin-top: -17px;
+    margin-top: -24px;
     padding: 10px;
     font-style: italic;
+}
+
+.glyphicon-eye-open {
+    color: #eb6864;
+    padding: 17px;
 }
 </style>
 
@@ -164,10 +169,10 @@ miss
 mrs 
  ~ married female
 
-Another honorific titles in the tripulation list, came from another languages:
+Another honorific titles in the tripulation list came from another languages:
 
 Dona
- ~ spanish title which is equivalent to Mrs (the correct form is "Doña") <br/>
+ ~ spanish title which is equivalent to Mrs (correct form is "Doña") <br/>
    [Oliva y Ocana, Dona. Fermina](http://www.encyclopedia-titanica.org/titanic-survivor/fermina-oliva-y-ocana.html)
 
 Don
@@ -202,7 +207,7 @@ combi$Title[combi$Title %in% c("Jonkheer","Don")] <- 'Mr'
 combi$Title <- factor(combi$Title)
 ```
 
-<a href="#title_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#title_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#title_ss .collapse}
 
@@ -223,10 +228,12 @@ tapply(combi$Age, combi$Title, summary)
 
 ####
 
-<div>interesting facts</div>
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
 
  * Noble title only includes one woman ([Leader, Dr. Alice](http://www.encyclopedia-titanica.org/titanic-survivor/alice-leader.html)), rest of title categories are _sex orthogonal_ (either female / male). In this case, Alice Leader could be easily moved to the "Mrs" category
  * Master's max age is `r max(combi$Age[combi$Title=="Master"], na.rm=T)`, while other titles have a wide array of ages
+</div>
 
 ###Family size
 
@@ -241,7 +248,7 @@ ggplot(combi[rows.train,], aes(x = Family.Size, fill = factor(Survived))) +
   labs(x = 'Family Size', fill='Survived')
 ```
 
-<a href="#famsize_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#famsize_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#famsize_ss .collapse}
 
@@ -262,14 +269,18 @@ and had access to exclusive areas; this is one of the numerous reasons their fat
 
 <a href="#famsize_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
 
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+Small families seems to be favored against larger families and singles, but this need to be checked against other features (like Pclass, Title or Deck).
+</div>
+
 ###Embarked
 
 ```{r }
 (.lastVal <- combi[is.na(combi$Embarked),c("Name", "Pclass", "Ticket", "Fare")])
 ```
 
-Fixing those two missing values may seem not relevant for the size of the whole sample, 
-but some machine learning algorithms require complete data sets.
 
 ```{r}
 ggplot(combi, aes(x = Embarked, y = Fare, fill = factor(Pclass))) +
@@ -287,6 +298,15 @@ combi$Embarked[rows.fix.embarked] = "C"
 # Convert to factor
 combi$Embarked <- factor(combi$Embarked)
 ```
+
+
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+Fixing those two missing values may seem not relevant for the size of the whole sample, 
+but some machine learning algorithms require complete data sets.
+</div>
+
 
 ###Age
 
@@ -306,9 +326,11 @@ After testing several imputation methods, MICE seems to fix the issues smoothly.
 nn <- capture.output (model.age <- complete(mice(combi[,c("Pclass","Sex","SibSp","Parch","Embarked","Title","Family.Size","Age","Fare")], method="rf")) , file = NULL)
 ```
 
-<a href="#age_mice_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#age_mice_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#age_mice_ss .collapse}
+
+Let's review new age distribution density ... did it change old age distribution?
 
 ```{r cache=T}
 age.type <- combi[!rows.fix.age,] %>% 
@@ -345,12 +367,12 @@ combi$Age.IsChild <- (combi$Age < 16 & (combi$Pclass == 1 | combi$Pclass==2)) | 
 combi$Age.IsMother <- !combi$Age.IsChild & combi$Parch > 0 & combi$Title == "Mrs"
 ```
 
-<a href="#ageIs_o" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#ageIs_o" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#ageIs_o .collapse}
 
 I know, I know .. we don't need to be so precise, but it makes me feel better.
-Then, review survival ratios for `Age.IsChild` and `Age.IsMother` predictors biased by class
+Then, review survival ratios for `Age.IsChild` and `Age.IsMother` predictors by class
 
 ```{r}
 rows.train.and.child <- rows.train & combi$Age.IsChild
@@ -359,10 +381,16 @@ rows.train.and.mother <- rows.train & combi$Age.IsMother
 plot(table(combi$Survived[rows.train.and.mother], combi$Pclass[rows.train.and.mother], dnn=c("Survived","Class")), main="IsMother=T")
 ```
 
-<div>interesting facts</div>
-Luck favored passengers in first and second class, regardless of whether was child or mother. But the percentage of saved mothers is higher than children.
-
 <a href="#ageIs_o" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+####
+
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+Luck favored passengers in first and second class, regardless of whether was child or mother. But the percentage of saved mothers is higher than children.
+</div>
+
 
 ###Fare
 
@@ -417,6 +445,14 @@ boxplot(Fare.PerPerson ~ Pclass, combi, main = "Fare.PerPerson")
 boxplot(Fare.PerPersonLog ~ Pclass, combi, main = "Fare.PerPersonLog")
 ```
 
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+Ticket fare mainly depends on ticket class and number of passengers travelling on the same ticket. 
+But also, children paid less for the ticket, there were family tickets to make the travel affordable to all kind of families.
+Finally, the ticket also cover the trip from the origin city to the port.
+</div>
+
 ###Ticket Name
 
 ![Titanic Ticket](http://cruiselinehistory.com/wp-content/uploads/2013/01/larger-image.jpeg)
@@ -443,7 +479,7 @@ ticketNames <- sapply(combi$Ticket, FUN = function(ticket) {
 sample(unique(ticketNames), 30)
 ```
 
-<a href="#ticket_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#ticket_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#ticket_ss .collapse}
 
@@ -536,7 +572,7 @@ combi$Ticket.Name <- factor(combi$Ticket.Name)
 combi$Ticket.NameSimple <- factor(combi$Ticket.NameSimple)
 ```
 
-<a href="#ticketName_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#ticketName_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#ticketName_ss .collapse}
 
@@ -626,7 +662,7 @@ combi %<>% rowwise() %>% mutate (Ticket.Count = as.numeric(ticket.count[Ticket])
 combi$Fare.PerTicket <- combi$Fare / combi$Ticket.Count
 ```
 
-<a href="#ticketCount_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#ticketCount_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#ticketCount_ss .collapse}
 
@@ -658,7 +694,7 @@ table(combi$Ticket.Count)
 I extended the concept of `Fare.PerPerson`, making a ratio between `Fare` and `Ticket.Count`, and naming the new column as `Fare.PerTicket`.
 In several prediction algorithms, `Ticket.Count` and `Fare.PerPerson` performs much better 
 
-<a href="#ticketCountFare_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#ticketCountFare_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#ticketCountFare_ss .collapse}
 
@@ -678,6 +714,15 @@ ggplot(fare.per, aes(x = values)) +
 ```
 
 <a href="#ticketCountFare_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+####
+
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+`Ticket.Count` / `Fare.PerTicket` and `Family.Size` / `Fare.PerPerson` are ones of the most important variables in several machine learning algorithms I tested.
+`Fare.PerTicket` returns reasonable per person price in cases where `Fare.PerPerson` looked suspicious.
+</div>
 
 ### Family Name
 I think `Name` column deserves more attention. For example, family names can be extracted and build clusters based on them. 
@@ -740,7 +785,7 @@ sum(!is.na(cabin.extended[rows.fix.cabin.by.ticket]))
 cabin.extended[rows.fix.cabin.by.ticket] <- predictCabinByTicket(combi, rows.fix.cabin.by.ticket)
 ```
 
-<a href="#cabinTicket_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#cabinTicket_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#cabinTicket_ss .collapse}
 
@@ -821,7 +866,7 @@ As mentioned before, `Deck` an be extracted from `Cabin` data. Problem is that c
 so I've got my own doubts about its usefulness.
 
 ```{r warning=F}
-plot(table(combi$Deck[rows.train], combi$Pclass[rows.train]), dnn=c("Deck","Class"), main="Class / Deck", shade=T)
+plot(table(combi$Deck[rows.train], combi$Pclass[rows.train]), dnn=c("Deck","Class"), main="Class / Deck")
 boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100,])
 ```
 Looking at the plots, there is a single passenger which deck seems not valid:
@@ -911,12 +956,12 @@ predictSide <- function(data) {
 combi <- predictSide(predictSideProbByCabin(combi))
 ```
 
-<a href="#side_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#side_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#side_ss .collapse}
 
 The previous code sets a side probability (probability that the cabin is in the port side): 1 if cabin number is even, 0 if cabin number is odd.
-If there is no cabin data, or the data doesn't contain a proper index (for example, passengers on cabin "D"), we set the side probability to NaN. 
+If there is no cabin data, or the data doesn't contain a proper cabin number (for example, passengers on cabin "D"), we set the side probability to NaN. 
 
 Let's review some special cases ... how many "cabins" contains spaces?
 
@@ -980,7 +1025,7 @@ sum(!is.na(cabin.extended[rows.fix.cabin.by.fare]))
 cabin.extended[rows.fix.cabin.by.fare] <- predictCabinByFare(combi, rows.fix.cabin.by.fare)
 ```
 
-<a href="#cabinFare_ss" class="button" data-toggle="collapse">safe check</a>
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#cabinFare_ss" class="button" data-toggle="collapse">safe check</a>
 
 ##### {#cabinFare_ss .collapse}
 
@@ -1144,7 +1189,7 @@ results.rf <- model.summary(train.rf)
 
 
 ```{r rf_3b, cache=T}
-train.rf.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name, train.pre, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
+train.rf <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name, train.pre, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
 ```
 
 [show model summary](#rf_3b_o){.button data-toggle="collapse"}
@@ -1152,14 +1197,14 @@ train.rf.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Titl
 ##### {#rf_3b_o .collapse}
 
 ```{r dependson="rf_3b", cache=T, warning=F, eval=F}
-#results.rf.best <- model.summary(train.rf.best, test.pre, F)
-#result <- data.frame(Survived = as.numeric(results.rf.best) - 1, PassengerId = test.pre$PassengerId)
+#results.rf <- model.summary(train.rf, test.pre, F)
+#result <- data.frame(Survived = as.numeric(results.rf) - 1, PassengerId = test.pre$PassengerId)
 #write.csv(result, "../titanic/titanic.csv", quote=F, row.names=F)
 ```
 #####
 
 ```{r rf_3, cache=T}
-train.rf.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name, train.batch, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
+train.rf <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name, train.batch, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
 ```
 
 [show model summary](#rf_3_o){.button data-toggle="collapse"}
@@ -1167,7 +1212,7 @@ train.rf.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Titl
 ##### {#rf_3_o .collapse}
 
 ```{r dependson="rf_3", cache=T, warning=F}
-results.rf.best <- model.summary(train.rf.best)
+results.rf <- model.summary(train.rf)
 ```
 #####
 
@@ -1199,7 +1244,7 @@ results.rf <- model.summary(train.rf)
 #####
 
 ```{r rf_6, cache=T}
-train.rf <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age, train.batch, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
+train.rf.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age, train.batch, method = "rf", metric = "ROC", trControl = trc.recv, tuneLength=5)
 ```
 
 [show model summary](#rf_6_o){.button data-toggle="collapse"}
@@ -1207,7 +1252,7 @@ train.rf <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + A
 ##### {#rf_6_o .collapse}
 
 ```{r dependson="rf_6", cache=T, warning=F}
-results.rf <- model.summary(train.rf)
+results.rf.best <- model.summary(train.rf.best)
 ```
 #####
 
@@ -1246,7 +1291,7 @@ results.c5 <- model.summary(train.c5)
 
 
 ```{r c50_2, cache=T, warning=F}
-train.c5 <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple, train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
+train.c5.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple, train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
 ```
 
 [show model summary](#c50_2_o){.button data-toggle="collapse"}
@@ -1254,13 +1299,13 @@ train.c5 <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + A
 ##### {#c50_2_o .collapse}
 
 ```{r dependson="c50_2", cache=T, warning=F}
-results.c5 <- model.summary(train.c5)
+results.c5.best <- model.summary(train.c5.best)
 ```
 #####
 
 
 ```{r c50_3, cache=T, warning=F}
-train.c5.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked, train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
+train.c5 <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked, train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
 ```
 
 [show model summary](#c50_3_o){.button data-toggle="collapse"}
@@ -1268,7 +1313,7 @@ train.c5.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Titl
 ##### {#c50_3_o .collapse}
 
 ```{r dependson="c50_3", cache=T, warning=F}
-results.c5.best <- model.summary(train.c5.best)
+results.c5 <- model.summary(train.c5)
 ```
 ####
 
@@ -1336,7 +1381,7 @@ results.gbm <- model.summary(train.gbm)
 
 ```{r gbm_2, cache=T, warning=F}
 tune.grid.gbm <- expand.grid(shrinkage = 0.06319474, n.trees = c(150,200), interaction.depth = c(5, 6, 7), n.minobsinnode = c(1, 5))
-train.gbm <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck, train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, tuneGrid = tune.grid.gbm)
+train.gbm.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck, train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, tuneGrid = tune.grid.gbm)
 ```
 
 [show model summary](#gbm_2_o){.button data-toggle="collapse"}
@@ -1344,13 +1389,13 @@ train.gbm <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + 
 ##### {#gbm_2_o .collapse}
 
 ```{r dependson="gbm_2", cache=T, warning=F}
-results.gbm <- model.summary(train.gbm)
+results.gbm.best <- model.summary(train.gbm.best)
 ```
 ####
 
 ```{r gbm_3, cache=T, warning=F}
 tune.grid.gbm <- expand.grid(shrinkage = 0.06319474, n.trees = c(150), interaction.depth = c(5,7,9), n.minobsinnode = c(1))
-train.gbm.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck, train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, tuneGrid = tune.grid.gbm)
+train.gbm <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck, train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, tuneGrid = tune.grid.gbm)
 ```
 
 [show model summary](#gbm_3_o){.button data-toggle="collapse"}
@@ -1358,7 +1403,7 @@ train.gbm.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Tit
 ##### {#gbm_3_o .collapse}
 
 ```{r dependson="gbm_3", cache=T, warning=F}
-results.gbm.best <- model.summary(train.gbm.best)
+results.gbm <- model.summary(train.gbm)
 ```
 ####
 
@@ -1371,51 +1416,49 @@ results.gbm.best <- model.summary(train.gbm.best)
 
 | formula | bad | accuracy | AUC | preProcess |
 |-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Sex:Pclass + Family.Size + Title + Age` |	28 | 0.8539 | 0.8424 | nzv |
-| **`Fate ~ Sex + Pclass + Fare.PerPerson + Sex:Pclass + Family.Size + Title + Age`** | 26 | 0.8427 | 0.8547 |    |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Age:Pclass + Sex:Pclass + Family.Size + Ticket.Count + Title + Age` | 28 | 0.8427 | 0.8424 | nzv |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Age:Pclass + Sex:Pclass + Family.Size + Ticket.Count + Title + Age` | 26 | 0.8539 | 0.8547 |    |
+| **`Fate ~ Sex + Pclass + Fare + Sex:Pclass + Family.Size + Title + Age`** | 25 | 0.8596 | 0.8547 |    |
+
+**KNN**
+
+| formula | bad | accuracy | AUC | preProcess |
+|-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
+| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Family.NameSimple`** | 29 | 0.8371 | 0.8319 |  |
 
 **RF**
 
 | formula | bad | accuracy | AUC | preProcess |
 |-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
 | `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Deck` | 27 | 0.8483 | 0.8528 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Deck + Age.IsMother + Age.IsChild` | 27 | 0.8483 | 0.8528 |  |
-| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name`** | 26 | 0.8539 | 0.8608 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name + Age.IsChild` | 26 | 0.8539 | 0.8608 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count` | 28 | 0.8427 | 0.8482 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age` | 27 | 0.8483 | 0.8528 |  |
-
-**KNN**
-
-| formula | bad | accuracy | AUC | preProcess |
-|-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Family.NameSimple` | 37 | 0.7921 | 0.7863 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Deck + Age.IsMother + Age.IsChild` | 27 | 0.8483 | 0.834 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name` | 25 | 0.8596 | 0.8482 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name + Age.IsChild` | 27 | 0.8483 | 0.8375 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count` | 23 | 0.8708 | 0.8605 |  |
+| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age`** | 23 | 0.8708 | 0.8605 |  |
 
 **CFOREST**
 
 | formula | bad | accuracy | AUC | preProcess |
 |-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name` | 28 | 0.8427 | 0.8482 |  |
-
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name` | 25 | 0.8596 | 0.8522 |  |
 
 **C5.0**
 
 | formula | bad | accuracy | AUC | preProcess |
 |-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name` | 30 | 0.8427 | 0.8326 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple` | 24 | 0.8652 | 0.8669 |  |
-| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked`** | 23 | 0.8708 | 0.8717 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Ticket.Name` | 29 | 0.8371 | 0.8269 |  |
+| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple`** | 25 | 0.8596 | 0.8469 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked` | 28 | 0.8427 | 0.8322 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked` | 25 | 0.8596 | 0.8469 |  |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked` | 25 | 0.8596 | 0.8469 |  |
 
 
 **Stochastic Gradient Boosting**
 
 | formula | bad | accuracy | AUC | preProcess |
 |-----------------------------------------------------------------------------------------------------------|----:|---------:|-------:|------------|
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked` | 26 | 0.8539 | 0.8523 |  |
-| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck` | 28 | 0.8427 | 0.8402 | shrinkage = 0.06319474, n.trees = c(150,200), interaction.depth = c(5, 6, 7), n.minobsinnode = c(1, 5) |
-| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck`** | 25 | 0.8596 | 0.8654 | shrinkage = 0.06319474, n.trees = c(150), interaction.depth = c(5,7,9), n.minobsinnode = c(1) |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked` | 23 | 0.8708 | 0.8649 |  |
+| **`Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck`** | 20 | 0.8876 | 0.8765 | shrinkage = 0.06319474, n.trees = c(150,200), interaction.depth = c(5, 6, 7), n.minobsinnode = c(1, 5) |
+| `Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck` | 26 | 0.8539 | 0.8429 | shrinkage = 0.06319474, n.trees = c(150), interaction.depth = c(5,7,9), n.minobsinnode = c(1) |
 
 
 #### Wrong predictions summary
@@ -1471,7 +1514,7 @@ print(table(test.batch$Pclass[rows.bad], test.batch$Survived[rows.bad]))
 suppressMessages(library(caretEnsemble))
 ```
 
-```{r stack1, cache=T}
+```{r stack1, cache=T, eval=F}
 trc.ens <- trainControl(method = "repeatedcv", repeats = 10, p = 0.8, summaryFunction = twoClassSummary, savePredictions = "final", classProbs = TRUE, returnResamp = "final", returnData = TRUE, verboseIter = TRUE, allowParallel = TRUE)
 suppressMessages(mod.ens <- caretList(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked + Side, data = train.batch, trControl = trc.ens, methodList = c("C5.0", "rf", "knn", "gbm"), metric = "ROC"))
 summary(mod.ens)
@@ -1479,7 +1522,7 @@ modelCor(resamples(mod.ens))
 car.ens <- caretEnsemble(mod.ens, metric="ROC", trControl = trainControl(number=2, summaryFunction=twoClassSummary, classProbs=T))
 ```
 
-```{r dependson="stack1"}
+```{r dependson="stack1", eval=F}
 pred.ens <- predict(car.ens, test.batch,type="raw")
 confusionMatrix(pred.ens, test.batch$Fate, positive="survived")
 #stack.ens <- caretStack(mod.ens, method = "glm", trControl = trc.ens, metric="ROC")
@@ -1487,7 +1530,7 @@ confusionMatrix(pred.ens, test.batch$Fate, positive="survived")
 ```
 #### stack2
 
-```{r stack2, cache=T}
+```{r stack2, cache=T, eval=F}
 trc.ens <- trainControl(method = "cv", repeats = 1, number = 10, p = 0.8, summaryFunction = twoClassSummary, savePredictions = "final", classProbs = TRUE, returnResamp = "final", returnData = TRUE, verboseIter = TRUE, allowParallel = TRUE)
 suppressMessages(mod.ens <- caretList(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked + Side, data = train.batch, trControl = trc.ens, methodList = c("C5.0", "rf", "knn", "gbm"), metric = "ROC"))
 summary(mod.ens)
@@ -1495,26 +1538,26 @@ modelCor(resamples(mod.ens))
 car.ens <- caretEnsemble(mod.ens, metric="ROC", trControl = trainControl(number=2, summaryFunction=twoClassSummary, classProbs=T))
 ```
 
-```{r dependson="stack2"}
+```{r dependson="stack2", eval=F}
 pred.ens <- predict(car.ens, test.batch,type="raw")
 confusionMatrix(pred.ens, test.batch$Fate, positive="survived")
 ```
 #### stack3
 
-```{r stack3, cache=T, warning=F}
+```{r stack3, cache=T, warning=F, eval=F}
 nn <- suppressMessages(mod.ens <- caretList(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple + Embarked + Side, data = train.batch, trControl = trc.ens, methodList = c("rf", "knn", "svmRadial", "cforest","rf","glmnet"), metric = "ROC"))
 modelCor(resamples(mod.ens))
 car.ens <- caretEnsemble(mod.ens, metric="ROC", trControl = trainControl(number=2, summaryFunction=twoClassSummary, classProbs=T))
 ```
 
-```{r dependson="stack3"}
+```{r dependson="stack3", eval=F}
 pred.ens <- predict(car.ens, test.batch,type="raw")
 confusionMatrix(pred.ens, test.batch$Fate, positive="survived")
 ```
 
 #### stack4
 
-```{r stack4, cache=T, warning=F}
+```{r stack4, cache=T, warning=F, eval=F}
 tuneList <- list (
 	#knn=caretModelSpec(method="knn", tuneLength=1),
 	knn=caretModelSpec(method="knn", tuneLength=5, preProcess=c("center","scale","nzv")),
@@ -1529,13 +1572,13 @@ modelCor(resamples(mod.ens))
 car.ens <- caretEnsemble(mod.ens, metric="ROC", trControl = trainControl(number=2, summaryFunction=twoClassSummary, classProbs=T))
 ```
 
-```{r dependson="stack4"}
+```{r dependson="stack4", eval=F}
 summary(car.ens)
 pred.ens <- predict(car.ens, test.batch,type="raw")
 confusionMatrix(pred.ens, test.batch$Fate, positive="survived")
 ```
 
-```{r}
+```{r eval=F}
 pred.ens <- predict(car.ens, test.pre,type="raw")
 pred.ens.inv <- as.integer(!as.integer(pred.ens)-1)
 result <- data.frame(Survived=pred.ens.inv, PassengerId=test.pre$PassengerId)
