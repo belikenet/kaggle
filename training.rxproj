@@ -8,23 +8,6 @@
     <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
   </PropertyGroup>
-  <ItemGroup>
-    <Content Include="..\crime\crime.R">
-      <Link>crime\crime.R</Link>
-    </Content>
-    <Content Include="..\fat\fat.R">
-      <Link>fat\fat.R</Link>
-    </Content>
-    <Content Include="..\fat\sparrow.R">
-      <Link>fat\sparrow.R</Link>
-    </Content>
-    <Content Include="..\titanic\titanic.R">
-      <Link>titanic\titanic.R</Link>
-    </Content>
-    <Content Include="..\titanic\titanic2.R">
-      <Link>titanic\titanic2.R</Link>
-    </Content>
-  </ItemGroup>
   <ProjectExtensions>
     <VisualStudio>
       <UserProperties />
