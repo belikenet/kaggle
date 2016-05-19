@@ -1,0 +1,409 @@
+---
+title: "Shelter Journal"
+date: "`r Sys.Date()`"
+author: "[Fran Pérez](https://es.linkedin.com/in/franjperez)"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: journal
+    highlight: tango
+---
+
+<style type="text/css">
+div.sourceCode + table.table {
+    width: 100%;
+}
+
+table.table {
+    width: auto;
+    margin: 20px auto;
+    background-color: white;
+}
+
+.section.level5.collapse {
+	padding: 1px 4px;
+	background-color: #FBE8E7;
+}
+
+pre.r { 
+    margin:0; 
+}
+
+pre.r  + pre {
+    border-top: 0;
+    margin: 0;
+}
+
+pre + p {
+    margin-top: 10px;
+}
+
+blockquote {
+    font-size: 16.5px !important;
+}
+
+div.sourceCode + p {
+    margin-top: 10px;
+}
+
+pre.sourceCode.r {
+    font-size: 13px;
+}
+
+p img {
+    display: block;
+    margin: 2px auto;
+}
+
+table + .caption {
+    text-align: center;
+    margin-top: -24px;
+    padding: 10px;
+    font-style: italic;
+}
+
+.glyphicon-eye-open {
+    color: #eb6864;
+    padding: 17px;
+}
+</style>
+
+## Introduction
+
+[Shelter animal outcomes](https://www.kaggle.com/c/shelter-animal-outcomes)
+
+[Quick & Dirty RandomForest](https://www.kaggle.com/mrisdal/shelter-animal-outcomes/quick-dirty-randomforest)
+
+[XGB and 'Quick and Dirty' Ensemble](https://www.kaggle.com/jwjohnson314/shelter-animal-outcomes/xgb-and-quick-and-dirty-ensemble)
+
+[dog groups](https://www.kaggle.com/andraszsom/shelter-animal-outcomes/dog-breeds-dog-groups)
+
+[Uncertainty estimates of outcome types](https://www.kaggle.com/andraszsom/shelter-animal-outcomes/uncertainty-estimates-of-outcome-types)
+
+
+## Feature engineering
+
+Loading packages used for feature engineering
+
+```{r warning=F,error=F,message=F}
+library(readr) # csv file read / write
+library(ggplot2) # visualization
+library(ggthemes) # visualization
+library(dplyr) # data manipulation
+library(lubridate) # dates
+library(caret) # classification algorithm
+library(stringr)
+library(mice) # imputation
+``` 
+
+```{r, include=F}
+options(width = 120)
+options(error = function() {
+    save.image(file = "error.rmd.RData")
+})
+knitr::opts_chunk$set(fig.align = 'center')
+set.seed(3874)
+``` 
+
+I used `read_csv`function in order to read training and test shelter data
+
+```{r}
+csv.folder <- ""
+#kaggle folder
+#csv.folder <- "../input/"
+train <- read_csv(file = paste0(csv.folder, "train.csv"))
+test <- read_csv(file = paste0(csv.folder, "test.csv"))
+``` 
+
+Then, I combine both data frames into a single one, named `full`. 
+I did some column renaming in order to normalize naming between datasets.
+
+```{r}
+full <- train %>% 
+	rename(Id = AnimalID) %>% 
+	select(-OutcomeSubtype) %>% 
+	bind_rows(test %>% 
+		rename(Id = ID) %>% 
+		mutate(OutcomeType = NA, Id = as.character(Id))
+	)
+
+full.original <- full
+rows.train <- !is.na(full$OutcomeType)
+
+glimpse(full, width=100)
+``` 
+The full dataset contains 9 variables and 38185 rows of data
+
+| Column     | Description    |
+|------------|----------------|
+| Id | animal Id |
+| Name | animal name (could be nameless)|
+| DataTime | timestamp |
+| OutcomeType | animal outcome |
+| AnimalType | dog or cat |
+| SexuponOutcome | animal sex upon outcome |
+| AgeuponOutcome | animal age upon outcome |
+| Breed | animal's breed |
+| Color | animal fur color |
+
+There were another columns in the original files, but were not relevant for analysis.
+
+### Breed
+
+```{r}
+sample(unique(full$Breed), 30)
+``` 
+
+It looks like in the breed feature there is a hair feature embedded. Let's examine it using regular expressions
+
+```{r}
+unique(str_match(full$Breed,"(?i)[ a-z]*hair[a-z]*")[,1])
+``` 
+
+I count 5 different hair categories: long, medium, short, wire, hairless.
+
+```{r}
+full$Breed.IsMix <- grepl("Mix$", full$Breed)
+# take first part of breed
+breed.main <- sapply(full$Breed, function(x) gsub(' Mix', '', strsplit(x, split = '/')[[1]][1]))
+# then remove hair
+breed.main <- str_trim(gsub("Longhair|Shorthair|Wirehaired|Wire Hair|Wirehair|Hairless|Medium Hair", "", breed.main))
+
+full$Breed.Main <- breed.main
+``` 
+
+Let's create hair feature
+
+```{r}
+full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
+					ifelse (grepl("Shorthair", full$Breed), "shorthair",
+					ifelse (grepl("Wirehaired|Wire Hair|Wirehair", full$Breed), "wirehair",
+					ifelse (grepl("Hairless", full$Breed), "hairless",
+					ifelse (grepl("Medium Hair", full$Breed), "medium", "unknown")))))
+
+table(full$Breed.Hair, full$AnimalType)
+``` 
+
+Finally, we can add the size ... for the moment, just for dogs 
+
+```{r}
+dogSizes <- read_csv("dog_size.csv")
+
+full <- right_join (dogSizes[,c("Breed.Main","Size")], full)
+full$Size[is.na(full$Size)] <- "unknown"
+``` 
+
+
+### Name
+
+Does having a name is correlated with the outcome?
+
+```{r}
+full$Name.NoName <- is.na(full$Name)
+prop.table(table(full$Name.NoName))
+``` 
+
+### Date
+
+We can extract several features from outcome date. 
+This features are important because they can highlight seasonal behaviors.
+
+```{r}
+full$Hour <- hour(full$DateTime)
+full$Weekday <- wday(full$DateTime, label = T)
+full$Month <- month(full$DateTime, label = T)
+full$Year <- year(full$DateTime)
+
+timeOfDay <- ifelse(full$Hour > 5 & full$Hour < 11, 'morning',
+                  ifelse(full$Hour > 10 & full$Hour < 16, 'midday',
+                  ifelse(full$Hour > 15 & full$Hour < 20, 'lateday', 'night')))
+
+full$TimeOfDay <- factor(timeOfDay, levels = c("morning", "midday", "lateday", "night"))
+rm(timeOfDay)
+``` 
+
+```{r}
+ggplot(full[rows.train,], aes(x = Month, fill = OutcomeType)) +
+  geom_bar(position = 'fill', colour = 'black')
+
+ggplot(full[rows.train,], aes(x = Weekday, fill = OutcomeType)) +
+  geom_bar(position = 'fill', colour = 'black')
+```
+
+As I suspected, there is certain seasonal pattern: per months, july and december are good months for adoptions 
+(matching end school and christmas holidays), and april worst month for adoptions.
+Shelters are open 7 days a week, as result, saturdays and sundays are best days for adoptions. 
+These are very reasonable deductions, following human customs.
+
+### AnimalType
+
+```{r}
+outcomes <- full[rows.train,] %>% group_by(AnimalType, OutcomeType) %>% summarise(count = n())
+ggplot(outcomes, aes(x = AnimalType, y = count, fill = OutcomeType)) + 
+    geom_bar(stat = "identity", position = "fill", color = "black") +
+    coord_flip() +
+    labs(y = "Animals %", x = "Animal", title="Outcomes: cats & dogs")
+```
+
+Most visible difference is that dogs are more prone to be returned to the owner, rather cats are transferred to another shelter.
+
+### Age
+
+The feature `AgeuponOutcome` is a regular text field. But the real age of the animal could be a good predictor. 
+
+```{r}
+unique(full$AgeuponOutcome)
+```
+
+Applying certain rules, we are able to translate text field to numeric field. 
+In the other side, precision is lost in the process (there is no difference between one year and one month and one year and 10 months); 
+anyway, the lack of precission in inherent to the text field itself, the conversion didn't add any loss by itself.
+
+```{r}
+rows.fix.age <- is.na(full$AgeuponOutcome)
+# fix missing age
+full$Age.Value <- sapply(full$AgeuponOutcome, function(x) as.numeric(strsplit(x, split = ' ')[[1]][1]) )
+full$Age.Unit <- sapply(full$AgeuponOutcome, function(x) gsub('s', '', strsplit(x, split = ' ')[[1]][2]))
+convertToDays <- ifelse(full$Age.Unit == 'day', 1,
+              ifelse(full$Age.Unit == 'week', 7,
+              ifelse(full$Age.Unit == 'month', 30, 
+              ifelse(full$Age.Unit == 'year', 365, NA))))
+full$Age.Days <- full$Age.Value * convertToDays
+
+full$Age.IsAdult <- full$Age.Days >= 365
+
+summary(full$Age.Days)
+``` 
+
+Basically, text field is translated to a numeric field (using day units)
+
+### Sex
+
+```{r}
+# imputate missing sex
+prop.table(table(full$Sex[full$AnimalType=="Cat"]))
+prop.table(table(full$Sex[full$AnimalType=="Dog"]))
+
+rows.fix.sex.unknown <- grepl("Unknown", full$SexuponOutcome)
+full$SexuponOutcome[rows.fix.sex.unknown] <- NA_character_
+rows.fix.sex.na <- is.na(full$SexuponOutcome)
+
+unique(full$SexuponOutcome)
+
+full$SexuponOutcome <- as.factor(full$SexuponOutcome)
+```
+
+```{r mice, cache=T}
+full.mice <- complete(mice(full[, c("AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Days", "Breed.IsMix", "Breed.Main")], method = "rf"))
+```
+
+```{r}
+#full$SexuponOutcome[rows.fix.sexoutcome] <- full$Sex[rows.fix.sexoutcome]
+full$Sex.IsUnknown <- rows.fix.sex.unknown
+full$Sex.IsIntact <- grepl("Intact", full$SexuponOutcome)
+full$Sex <- gsub("Neutered |Intact |Spayed ", "", full$SexuponOutcome)
+``` 
+
+### Color
+
+I think color is an important field. But right now, color field is text only, and we could squeeze more data from it.
+Let's check a sample of colors 
+
+```{r}
+sample(unique(full$Color), 30)
+```
+
+There are some colors expressed as a mix of colors, and there are flat colors too. We can extract a feature (main color)
+in order to identify first color in the field. Then, another feature can be used to know if the animal is single / mix colored.
+
+```{r}
+full$Color.Main <- sapply(full$Color, function(x) strsplit(x, split = '/| ')[[1]][1])
+full$Color.IsFlat <- !grepl("/", full$Color)
+``` 
+
+There are several ways to encode colors. Most common encoding used in computers is rgb (red, green, blue components). 
+But for humans, this encoding doesn't give any insight, this is the reason there are other encodings like 
+HSV (hue, saturation, vibrance components) which is based in how humans perceive the colors.
+
+R also has a builtin library for color names. Not all the colors in the `Color.Main` column are included in the library, 
+but is a good starting point. From there, I will add some rules in order to complete the set of colors.
+
+```{r}
+convertToHsv <- function(colorname) {
+    colorname <- tolower(colorname)
+    rgb <- switch(colorname,
+                  calico = "white",
+                  cream = "#FFFDD0",
+                  torbie = "black",
+                  tortie = "black",
+                  buff = "#F0DC82",
+                  tricolor = "white",
+                  seal = "#59260B",
+                  fawn = "#E5AA70",
+                  flame = "orangered",
+                  sable = "saddlebrown",
+                  liver = "sandybrown",
+                  apricot = "#FBCEB1",
+                  lynx = "antiquewhite2",
+                  lilac = "#C8A2C8",
+                  agouti = "ivory3",
+                  ruddy = "indianred1",
+                  silver = "#C0C0C0")
+    
+    if (is.null(rgb))
+        rgb <- colorname
+    
+    return (rgb2hsv(col2rgb(rgb)))
+}
+
+colorsHSV <- full %>% 
+    select(Color.Main) %>% 
+    distinct() %>% 
+    rowwise() %>% 
+    mutate(Color.H = convertToHsv(Color.Main)["h", 1],
+           Color.S = convertToHsv(Color.Main)["s", 1],
+           Color.V = convertToHsv(Color.Main)["v", 1])
+
+full <- full %>% inner_join(colorsHSV)
+``` 
+
+#### safe check
+
+Look for examples of animaltype/breed and adopted/
+
+## Processing
+
+```{r}
+factorVars <- c("OutcomeType", "AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Hour", "Breed.Main", "Color.Main", "Sex", "Breed.Hair")
+full[factorVars] <- lapply(full[factorVars], function(x) as.factor(x))
+``` 
+
+```{r}
+
+``` 
+
+```{r}
+
+``` 
+
+
+## Notes
+```{r}
+save.image(file="shelter.rmd.RData")
+sessionInfo()
+```
+
+[Dog Size Classification by Breed](http://www.petsatlanta.com/PageGeneral/breeds.html)
+pre-process dog size
+```{r eval=F}
+
+dogSize <- read_csv(file = paste0(csv.folder, "dog_size.csv"))
+dogBreedMatch <- str_match(dogSize$Breed, "(([a-zA-Z]*) - )?([ a-zA-Z]*)")
+dogBreedMain <- paste(dogBreedMatch[, 4], ifelse(is.na(dogBreedMatch[, 3]), "", dogBreedMatch[, 3]))
+dogBreedMain <- str_trim(dogBreedMain)
+dogSize$Breed.Main <- dogBreedMain
+#write_csv(dogSize, "dog_size.csv")
+``` 
+
