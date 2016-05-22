@@ -156,7 +156,12 @@ There were another columns in the original files, but were not relevant for anal
 sample(unique(full$Breed), 30)
 ``` 
 
-It looks like in the breed feature there is a hair feature embedded. Let's examine it using regular expressions
+There is clearly two kinds of breeds: pure and mixed, so let's flag mixed
+```{r}
+full$Breed.IsMix <- grepl("Mix$", full$Breed)
+```
+
+On a second inspection, breed feature seem to have a hair feature embedded. Let's examine it using regular expressions
 
 ```{r}
 unique(str_match(full$Breed,"(?i)[ a-z]*hair[a-z]*")[,1])
@@ -165,7 +170,6 @@ unique(str_match(full$Breed,"(?i)[ a-z]*hair[a-z]*")[,1])
 I count 5 different hair categories: long, medium, short, wire, hairless.
 
 ```{r}
-full$Breed.IsMix <- grepl("Mix$", full$Breed)
 # take first part of breed
 breed.main <- sapply(full$Breed, function(x) gsub(' Mix', '', strsplit(x, split = '/')[[1]][1]))
 # then remove hair
@@ -186,13 +190,18 @@ full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
 table(full$Breed.Hair, full$AnimalType)
 ``` 
 
-Finally, we can add the size ... for the moment, just for dogs 
+Finally, we can add the size ... for the moment, just for dogs and for pure breed
 
-```{r}
+```{r eval=F}
+#dogs
 dogSizes <- read_csv("dog_size.csv")
 
-full <- right_join (dogSizes[,c("Breed.Main","Size")], full)
+full[full$IsMix==F,] <- right_join (dogSizes[,c("Breed.Main","Size")], full[full$IsMix==F,])
 full$Size[is.na(full$Size)] <- "unknown"
+
+#cats
+#catBreed <- read_csv("cat_breed.csv")
+#full[full$IsMix==F,] <- right_join (catBreed[,c("Breed.Main","Size")], full[full$IsMix==F,])
 ``` 
 
 
@@ -396,9 +405,9 @@ sessionInfo()
 ```
 
 [Dog Size Classification by Breed](http://www.petsatlanta.com/PageGeneral/breeds.html)
+[Cat Classification By Breed](http://www.wikiwand.com/en/List_of_cat_breeds)
 pre-process dog size
 ```{r eval=F}
-
 dogSize <- read_csv(file = paste0(csv.folder, "dog_size.csv"))
 dogBreedMatch <- str_match(dogSize$Breed, "(([a-zA-Z]*) - )?([ a-zA-Z]*)")
 dogBreedMain <- paste(dogBreedMatch[, 4], ifelse(is.na(dogBreedMatch[, 3]), "", dogBreedMatch[, 3]))
@@ -407,3 +416,8 @@ dogSize$Breed.Main <- dogBreedMain
 #write_csv(dogSize, "dog_size.csv")
 ``` 
 
+pre-process cat breeds
+```{r}
+catBreed <- read_csv(file = paste0(csv.folder, "cat_breed.csv"))
+str(catBreed)
+```
