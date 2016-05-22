@@ -23,8 +23,12 @@ table.table {
 }
 
 .section.level5.collapse {
-	padding: 1px 4px;
+	padding: 10px;
 	background-color: #FBE8E7;
+    margin: 0 -10.5px;
+    line-height: 1.42;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
 }
 
 pre.r { 
@@ -57,7 +61,7 @@ p img {
     margin: 2px auto;
 }
 
-table + .caption {
+table + .caption, p + .caption {
     text-align: center;
     margin-top: -24px;
     padding: 10px;
@@ -67,24 +71,24 @@ table + .caption {
 .glyphicon-eye-open {
     color: #eb6864;
     padding: 17px;
+    padding-right: 0;
 }
+
+.level5 > h5  { display: none; }
+
 </style>
+
 
 ## Introduction
 
-There are several posts in the Internet which describe how to squeeze and process data coming from the Kaggle's Titanic datasets. Basically, 
-I based my research on [Exploring the Titanic Dataset](https://www.kaggle.com/mrisdal/titanic/exploring-survival-on-the-titanic/notebook) and
-[Titanic: Getting Started with R](http://trevorstephens.com/post/72916401642/titanic-getting-started-with-r), both of them are terrific examples about how to address several problems in these datasets. 
-I humbly extend their research, adding personal names to the data, in order to give another perspective which is not merely "statistic", 
-pretending to merge data and social views. I will try to turn this essay in my first attempt on 
-[data journalism](http://datajournalismhandbook.org/1.0/en/introduction_0.html) 
-and [reproducible research](https://cran.r-project.org/web/views/ReproducibleResearch.html). 
-Alongside this essay, I will publish another short posts about reproducible research patterns on R.
-My aim is to prove that reproducible research is good tool for any developer.
+This is my first attempt on data science. I love the Titanic challenge because there are several posts in the Internet which describe 
+how to squeeze and process data coming from the Kaggle's Titanic datasets. Basically, I based my work on 
+[Exploring the Titanic Dataset](https://www.kaggle.com/mrisdal/titanic/exploring-survival-on-the-titanic/notebook) and
+[Titanic: Getting Started with R](http://trevorstephens.com/post/72916401642/titanic-getting-started-with-r), 
+both of them are terrific examples about how to address several problems in these datasets. Besides, I used other non-scientific essays 
+about the Titanic's catastrophe in order to find new answers. Please feel free to make any comment / suggestions, and forgive my _English_.
 
 ##Feature engineering
-
-Loading packages used for feature engineering
 
 ```{r warning=F,error=F,message=F}
 library(plyr) # dataframe manipulation
@@ -107,8 +111,9 @@ set.seed(3874)
 I use `read_csv` function in order to load data from training and test files into a couple of dataframes.
 After loading, we add a column named `Survived` to the test dataframe (initialized to NA), which will be used as a placeholder 
 (training dataset already has got `Survived` as column).
+
 Once the `Survived` column is present in both dataframes, they can be combined in a single dataframe named `combi`.
-From now on, we will use variable names starting by `rows.*` for representing logical/int vectors, and they will be used as row dataframe filters.
+From now on, I will use variable names starting by `rows.*` for representing logical/int vectors, and they will be used as row dataframe filters.
 For instance, `rows.train` will represent rows from combi dataframe which belong to the original training dataframe.
 
 ```{r}
@@ -128,7 +133,7 @@ The combined dataset contains 1309 rows, and 12 variables. Kaggle give us some [
 
 | Column     | Description    |
 |------------|----------------|
-| PassengerId | passenger id (no useful information) |
+| PassengerId | Passenger ID (no useful information) |
 | Survived | survival label: 1 (survived), 0 (died) |
 | Pclass | ticket's class (passenger's socio-economic status)|
 | Name | Passenger's name |
@@ -137,7 +142,7 @@ The combined dataset contains 1309 rows, and 12 variables. Kaggle give us some [
 | SibSp | Number of siblings / spouses aboard |
 | Parch | Number of parents / children aboard |
 | Ticket | Ticket identifier |
-| Fare | Ticket's price (pounds) |
+| Fare | Ticket's price (british pounds) |
 | Cabin | Passenger's cabin |
 | Embarked | Port of embarkation |
 
@@ -153,7 +158,7 @@ combi$Sex <- factor(combi$Sex)
 ###Title
 
 I will create a new predictor, based on the value of the `Name` column, which always contain the person's honorific title. 
-Less frequent titles will be grouped in a new bin (title) called Noble.
+Less frequent titles will be grouped in a new Title category named `Noble`.
 
 For internal reminder, and for other non-english speakers, I attached english honorific title _cheatsheet_:
 
@@ -169,7 +174,7 @@ miss
 mrs 
  ~ married female
 
-Another honorific titles in the tripulation list came from another languages:
+Another honorific titles in the passenger list came from another languages:
 
 Dona
  ~ spanish title which is equivalent to Mrs (correct form is "Doña") <br/>
@@ -211,7 +216,7 @@ combi$Title <- factor(combi$Title)
 
 ##### {#title_ss .collapse}
 
-I made an special title category combining "Capt", "Col", "Dr", "Major", "Rev", "Sir" as these titles are bound to some "attitudes"/jobs which may influence passenger's fate.
+I made an special title category combining "Capt", "Col", "Dr", "Major", "Rev", "Sir" as these titles are bound to some _hierarchies_/jobs which may influence passenger's fate.
 
 ```{r}
 kable(combi %>% filter (Title == "Noble") %>% select (Name, Pclass, Age, Survived) %>% arrange (Survived, Pclass))
@@ -237,7 +242,7 @@ tapply(combi$Age, combi$Title, summary)
 
 ###Family size
 
-Create a new predictor based on the sum of `Parch` and `SibSp`. Maybe the survival ratio shows some correlation with the size of the family (does the family sink or swim together?)
+Create a new predictor based on the sum of `Parch` and `SibSp`. May be the survival ratio shows some correlation with the size of the family (does the family sink or swim together?)
 
 ```{r}
 combi$Family.Size <- combi$SibSp + combi$Parch + 1
@@ -269,6 +274,8 @@ and had access to exclusive areas; this is one of the numerous reasons their fat
 
 <a href="#famsize_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
 
+####
+
 <div class="alert alert-info">
 <span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
 
@@ -277,10 +284,13 @@ Small families seems to be favored against larger families and singles, but this
 
 ###Embarked
 
+Checking out completeness of embarkation port, I discovered two passengers missing data in this column:
+
 ```{r }
 (.lastVal <- combi[is.na(combi$Embarked),c("Name", "Pclass", "Ticket", "Fare")])
 ```
 
+Let's try to figure out embarkation port checking the price paid by another passengers depending on the embarkation port:
 
 ```{r}
 ggplot(combi, aes(x = Embarked, y = Fare, fill = factor(Pclass))) +
@@ -299,6 +309,7 @@ combi$Embarked[rows.fix.embarked] = "C"
 combi$Embarked <- factor(combi$Embarked)
 ```
 
+<br/>
 
 <div class="alert alert-info">
 <span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
@@ -310,7 +321,7 @@ but some machine learning algorithms require complete data sets.
 
 ###Age
 
-`Age` column contains many missing values.
+`Age` column contains many missing values:
 
 ```{r}
 summary(combi$Age)
@@ -319,7 +330,7 @@ rows.fix.age <- is.na(combi$Age)
 prop.table(table(rows.fix.age))
 ```
 
-After testing several imputation methods, MICE seems to fix the issues smoothly.
+After testing several imputation methods, MICE seems to recover missing values smoothly.
 
 ```{r cache=T, warning=F }
 # so much in order to supress output from mice command
@@ -417,7 +428,7 @@ kable(combi %>%
 Digging deeper on the fare cases, the single passenger with missing fare is 
 [Mr Thomas Storey](http://www.encyclopedia-titanica.org/titanic-victim/thomas-storey.html), who was working for the American Line as a seaman. 
 So I'd say that this passenger didn't pay for its ticket.
-Against my personal believe, most of these _VIP_ passengers did not survive (maybe because they view themselves as crew members, who most of them died as well)
+Against my personal believe, most of these _VIP_ passengers did not survive (may be because they view themselves as crew members, who most of them died as well)
 Anyway, I set a dummy variable `Fare.IsZero` to flag these passengers.
 
 ```{r }
@@ -448,14 +459,20 @@ boxplot(Fare.PerPersonLog ~ Pclass, combi, main = "Fare.PerPersonLog")
 <div class="alert alert-info">
 <span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
 
-Ticket fare mainly depends on ticket class and number of passengers travelling on the same ticket. 
-But also, children paid less for the ticket, there were family tickets to make the travel affordable to all kind of families.
-Finally, the ticket also cover the trip from the origin city to the port.
+Ticket fare mainly depended on class ticket (`Pclass`) and number of passengers travelling on the same ticket (`Family.Size`). 
+Other factors affecting ticket fare: 
+    
+* children paid less for the ticket  
+* there were family tickets to make the travel affordable to all kind of families
+* the ticket also cover the trip from the origin city to the port
+
 </div>
 
 ###Ticket Name
 
 ![Titanic Ticket](http://cruiselinehistory.com/wp-content/uploads/2013/01/larger-image.jpeg)
+
+<div class="caption" style="margin-top: -8px">Third Class (Steerage) Passenger's Contract Ticket</div>
 
 `Ticket` column has no missing values. Let's check ticket data values, looking for _visual_ data patterns:
 
@@ -559,6 +576,9 @@ tabTicketName <- table(combi$Ticket.Name)
 ticketNameUnder10 <- row.names(tabTicketName[tabTicketName <= 10])
 combi$Ticket.NameSimple <- combi$Ticket.Name
 combi$Ticket.NameSimple[combi$Ticket.NameSimple %in% ticketNameUnder10] <- "SMALL"
+```
+
+```{r}
 rm(ticketNameUnder10, tabTicketName)
 ```
 
@@ -580,10 +600,13 @@ Let's check if still exists some correlation between new ticket name column and 
 
 ```{r warning=F}
 ticketNames.chisq <- apply(combi[,c(combi.columns.isfactor,"Ticket.Name")], 2, function (x) {chisq.test(combi$Ticket.NameSimple,x)$p.value})
-ggplot() + geom_point(aes(x = names(ticketNames.chisq), y = ticketNames.chisq)) + xlab("is.factor") + ylab ("chi.square test")
+ggplot() + 
+    geom_point(aes(x = names(ticketNames.chisq), y = ticketNames.chisq)) + 
+    xlab("is.factor") + 
+    ylab ("chi.square test")
 ```
 
-As expected, `Ticket.Name` is correlated with `Embarked` and `Pclass` features.
+As expected, `Ticket.NameSimple` seems to be correlated with `Embarked`, `Pclass` and `Ticket.Name` features.
 
 ```{r warning=F}
 name.by.class <- table(combi$Ticket.Name, combi$Pclass)
@@ -601,7 +624,7 @@ by the time of the iceberg crash.
 
 Let's do a visual inspection between `Ticket` and `Cabin`, looking for patterns. 
 My hypothesis is that passengers with the same ticket will be located at the same cabin, 
-so let's check if there are cases which defy former hyphotesis:
+so let's check if there are cases which defy former hypothesis:
 
 ```{r}
 .lastVal <- (print (combi %>% group_by(Pclass, Cabin) %>% summarise(count = n_distinct(Ticket)) %>% filter(count > 1 & !is.na(Cabin)) %>% arrange(Pclass, count), n = 40))
@@ -622,7 +645,8 @@ combi %>% filter(Ticket == "113781") %>% select(Name, Age, Fare, Ticket, Pclass,
 ```
 
 [Mr George Swane](http://www.encyclopedia-titanica.org/titanic-victim/george-swane.html) (ticket 248734), was also hired by the Allison family, but was travelling with a different ticket and in a different cabin than Amelia Mary Brown.
-In most cases, passengers on the same cabin known each other and share same ticket; although there exist a `r round(nrow(.lastVal)*100/nrow(combi))` percentage of weird cases, where cabins are shared amongst total strangers.
+
+In conclusion, passengers on the same cabin known each other and share same ticket; although there exist a `r round(nrow(.lastVal)*100/nrow(combi))` percentage of weird cases, where cabins are shared amongst total strangers.
 
 Now, let's check the other way around: special cases of tickets in different cabins. The truth hypothesis will be all passengers with the same ticket are located in the same cabin. 
 Is this the same case as before?
@@ -640,26 +664,39 @@ combi %>% filter(Ticket == "113503") %>% select(Name, Age, Fare, Ticket, Pclass,
 We can generally confirm that cabins are located nearby, although there are some exceptions, 
 like the one I appointed before (anyway, these exceptions only represent `r round(nrow(.lastVal)*100/nrow(combi))` % of the sample)
 
-Last hyphotesis to prove would be to test if all tickets are class orthogonal:
+Last hypothesis to prove would be to test if all tickets are class orthogonal:
 
 ```{r}
 combi %>% group_by(Ticket) %>% summarise(count = n_distinct(Pclass)) %>% filter (count > 1)
+combi %>% group_by(Ticket.Name) %>% summarise(count = n_distinct(Pclass)) %>% filter (count > 1)
+combi %>% group_by(Ticket.NameSimple) %>% summarise(count = n_distinct(Pclass)) %>% filter (count > 1)
 ```
 
-It looks like the hyphotesis is correct, and passenger's class may be used as a location feature, but it won't be as good location feature as `Cabin`.
+Not only `Ticket`, but `Ticket.Name` and `Ticket.NameSimple` can be considered class orthogonal as well.
+In the end, it looks like the hypothesis is correct, and passenger's ticket may be used as a location feature, but it won't be as good location feature as `Cabin`.
 
 <a href="#ticketName_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
 
 ####
 
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+
+In my opinion, ticket field contains many typos (probably, bad transcriptions from original papers). 
+The ticket may be used as well to combine families / groups travelling with the same ticket, and can be correlated as well with embarkation port.
+All these facts could be correlated with the passenger's cabin, which in most cases is unknown.
+</div>
+
+
 ### Ticket Count
 
-In the same way I believe `Family.Size` is correlated with `Survived`, the number of people sharing same ticket could be important as well. 
+In the same way I believe `Family.Size` is correlated with `Survived`, the number of people sharing same ticket could be important as well, 
+so I create another feature named `Ticket.Count`.
 
 ```{r}
 ticket.count <- table(combi$Ticket)
 combi %<>% rowwise() %>% mutate (Ticket.Count = as.numeric(ticket.count[Ticket]))
-combi$Fare.PerTicket <- combi$Fare / combi$Ticket.Count
+table(combi$Ticket.Count)
 ```
 
 <span class="glyphicon glyphicon-eye-open"></span> <a href="#ticketCount_ss" class="button" data-toggle="collapse">safe check</a>
@@ -671,10 +708,20 @@ Let's find out how it works out:
 ```{r}
 # check cases where ticket.count != family.size
 # and reduce the sample to passengers where ticket.count == 3
-kable(combi %>% filter(Ticket.Count != Family.Size & Ticket.Count == 3) %>% select(Name, Pclass, Embarked, Family.Size, Ticket.Count, Ticket, Ticket.Name) %>% arrange(Ticket), col.names = c("Name","Class","Embarked","FamSize","TickCount","Ticket","TickName"))
+ticket.count.sc <- combi %>% 
+    filter(Ticket.Count != Family.Size & Ticket.Count == 3) %>% 
+    select(Name, Pclass, Embarked, Family.Size, Ticket.Count, Ticket, Ticket.Name) %>% 
+    arrange(Ticket)
+kable(ticket.count.sc, col.names = c("Name","Class","Embarked","FamSize","TickCount","Ticket","TickName"))
 ```
 
-First passenger on the list is [Cherry, Miss. Gladys](http://www.encyclopedia-titanica.org/titanic-survivor/gladys-cherry.html). From the Encyclopedia Titanica:
+```{r include=F}
+remove(ticket.count.sc)
+```
+
+In order to show the differences between ticket count and family size, I created a query returning passengers `Ticket.Count != Family.Size & Ticket.Count == 3`.
+Then , I research on first passenger on the list: [Cherry, Miss. Gladys](http://www.encyclopedia-titanica.org/titanic-survivor/gladys-cherry.html). 
+From the Encyclopedia Titanica:
 
 > She boarded the Titanic at Southampton with her cousin the Countess of Rothes and her maid Roberta Maioni (joint ticket number 110152 which cost £86, 10s). They occupied cabin B-77.
 
@@ -685,14 +732,11 @@ and [the Countess](http://www.encyclopedia-titanica.org/titanic-survivor/countes
 
 ####
 
-So I create a new predictor named `Ticket.Count`.
+I extended the concept of `Fare.PerPerson`, making a ratio between `Fare` and `Ticket.Count`, and naming the new column as `Fare.PerTicket`.
 
 ```{r}
-table(combi$Ticket.Count)
+combi$Fare.PerTicket <- combi$Fare / combi$Ticket.Count
 ```
-
-I extended the concept of `Fare.PerPerson`, making a ratio between `Fare` and `Ticket.Count`, and naming the new column as `Fare.PerTicket`.
-In several prediction algorithms, `Ticket.Count` and `Fare.PerPerson` performs much better 
 
 <span class="glyphicon glyphicon-eye-open"></span> <a href="#ticketCountFare_ss" class="button" data-toggle="collapse">safe check</a>
 
@@ -705,12 +749,23 @@ summary(combi$Fare)
 summary(combi$Fare.PerPerson)
 summary(combi$Fare.PerTicket)
 
-kable(combi[combi$Fare>100,c("Name","Fare","Fare.PerPerson","Family.Size","Fare.PerTicket","Ticket.Count","Pclass","Ticket")] %>% arrange(Ticket, Fare))
+ticket.count.sc <- combi %>% 
+    filter (Fare > 100) %>% 
+    select (Name,Fare,Fare.PerPerson,Family.Size,Fare.PerTicket,Ticket.Count,Pclass,Ticket) %>% 
+    arrange (Ticket, Fare)
+
+kable(ticket.count.sc)
 
 fare.per <- stack(combi[,c("Fare.PerPerson","Fare.PerTicket")])
 ggplot(fare.per, aes(x = values)) +
 	geom_density(aes(fill = ind), alpha = 0.6) +
 	labs(x = 'Fare.Per', fill = '')
+```
+
+We observe a similar distribution between `Fare.PerPerson` and `Fare.PerTicket`
+
+```{r include=F}
+rm(ticket.count.sc)
 ```
 
 <a href="#ticketCountFare_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
@@ -728,8 +783,8 @@ ggplot(fare.per, aes(x = values)) +
 I think `Name` column deserves more attention. For example, family names can be extracted and build clusters based on them. 
 As there can be two diferent family groups traveling under the same family name, 
 I will concatenate family name, `Family.Size` and `Ticket.Name` to encode the `Family.Name`.
-I will create another codification for a reduced family name (`Family.NameSimple`), combining in a single group passengers 
-with family size below three and low frequency groupings (threshold set to 3).
+I will create another codification (`Family.NameSimple`), combining in a single group passengers 
+with family size below three and frequency below 3 (this _artificial_ cluster is named "Small").
 
 ```{r}
 surname <- sapply(combi$Name, FUN = function(x) {
@@ -739,16 +794,21 @@ combi$Family.Name <- paste(surname, as.character(combi$Family.Size), combi$Ticke
 
 # reduce groups size
 combi$Family.NameSimple <- combi$Family.Name
-combi$Family.NameSimple[combi$Family.Size <= 2] <- 'Small'
+combi$Family.NameSimple[combi$Family.Size < 3] <- 'Small'
 # Delete erroneous family IDs
 famIDs <- table(combi$Family.NameSimple)
-famIDs <- rownames(famIDs[famIDs <= 2])
+famIDs <- rownames(famIDs[famIDs < 3])
 combi$Family.NameSimple[combi$Family.NameSimple %in% famIDs] <- 'Small'
 # Convert to factor
 combi$Family.NameSimple <- factor(combi$Family.NameSimple)
-rm(famIDs, surname)
+
+length(unique(famIDs))
+sample(unique(famIDs), 20)
 ```
 
+```{r include=F}
+rm(famIDs, surname)
+```
 ###Cabin
 
 `r round(prop.table(table(is.na(combi$Cabin)))[["TRUE"]]*100)`% of the passengers haven't got cabin data.
@@ -756,14 +816,15 @@ Figuring out the cabin might be a _fortune-telling_ task,
 but guessing the deck can be more _realistic_ based upon `Ticket` and `Fare` data, 
 and the deck is also a good location feature.
 
-The first imputation we will test will be using `Ticket` information, 
-as probably tickets belonging to the same class and ticket name, would occupy _nearby_ cabins
+It's very unlikely we can imputate cabins from current data. My approach will be obtaining a _likely_ cabin,
+and then use this data to infer `Deck` (in other words, we won't use directly this new cabin data).
 
-My trick would be to imputate cabin data using as reference other cabins with the same ticket.
-As seen before, there are seldom cases of same-ticket passengers spread along several cabins, 
-but even in former rare cases, they stay on the same deck and most of the times, in contigous cabins.
+The first imputation we will use `Ticket` information, 
+as probably tickets belonging to the same class and ticket, would occupy _nearby_ cabins. We already have seen, that 
+there are some cases of same-ticket passengers spread along several cabins, 
+but even in those cases, they stay on the same deck and most of the times, in contiguous cabins.
 
-```{r}
+```{r warning=F}
 predictCabinByTicket <- function(data, rows.filter) {
     ticket.cabin <- data %>% 
 		filter(!is.na(Cabin)) %>% 
@@ -807,7 +868,8 @@ For example, let's check `"PC 17760"` ticket case:
 (.lastVal = combi %>% filter (Ticket == "PC 17760") %>% select (Ticket, Name, Cabin))
 ```
 Traveling with the same ticket, we got cabins `r unlist(unique(.lastVal$Cabin[!is.na(.lastVal$Cabin)]))` , 
-but we imputate the most frequent one, which is `r  unlist(.lastVal %>% group_by(Cabin) %>% summarise(count = n()) %>% arrange(count) %>% top_n(1) %>% select (Cabin))`
+but we imputate the most frequent one, which is `r  unlist(.lastVal %>% group_by(Cabin) %>% summarise(count = n()) %>% arrange(count) %>% top_n(1) %>% select (Cabin))`.
+This last refinement is not needed if using the data for deck inference, but if we want to infer the side of the cabin, this will help a bit.
 
 ```{r include="F"}
 # check NA's count after predict (should be greather than 0)
@@ -818,12 +880,107 @@ but we imputate the most frequent one, which is `r  unlist(.lastVal %>% group_by
 
 ##### 
 
-In conclussion, using this procedure, we figure out `r .lastVal` cabin values. 
-I will move this new data into a new column named `Cabin.Extended` and this data will be used to generate `Side` and `Deck` information.
+In conclusion, using this _prediction rule_, we figure out `r .lastVal` cabin values. 
+
+
+The second trick will be based on `Fare`, `Pclass` and `Family.Size` data. 
+
+```{r warning=F}
+predictCabinByFare <- function(data, rows.filter) {
+    ticket.fare <- data %>% 
+		filter (!is.na(Cabin) & Fare > 0) %>%
+        group_by(Fare.PerPerson, Embarked, Pclass, Family.Size, Cabin) %>%
+        summarise(max=max(n())) %>%
+        arrange(desc(max)) %>%
+        summarize_each(funs(first)) %>%
+		rename (Cabin.Ren = Cabin) %>%
+		select (-max)
+
+	rj <- right_join(ticket.fare, data)
+	return (rj$Cabin.Ren[rows.filter])
+}
+```
+
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#cabinFareFunc_ss" class="button" data-toggle="collapse">safe check</a>
+
+##### {#cabinFareFunc_ss .collapse}
+
+Let's check my point about using `predictCabinByFare`:
+
+```{r warning=F}
+cabinFareSafeCheck <- combi %>% 
+    filter (!is.na(Cabin) & Fare > 0) %>%
+    group_by(Fare.PerPerson, Embarked, Pclass, Family.Size, Cabin) %>%
+    summarise(max = max(n()))
+print (cabinFareSafeCheck, n = 30) 
+```
+
+The price of the ticket depends on several features, but most important ones are: class, embarkation port and family size. 
+
+```{r warning=F}
+cabinFareSafeCheck <- cabinFareSafeCheck %>% 
+    arrange(desc(max)) %>%
+    summarize_each(funs(first))
+print (cabinFareSafeCheck , n = 30) 	
+```
+
+```{r include=F}
+rm(cabinFareSafeCheck)
+```
+
+As there can be several clusters in the same group, I select the first most common one.
+
+<a href="#cabinFareFunc_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+####
+
+```{r warning=F}
+rows.fix.cabin.by.fare <- which(is.na(cabin.extended))
+# check NA's count before predict (should be 0)
+sum(!is.na(cabin.extended[rows.fix.cabin.by.fare]))
+
+# use following prediction rule at your own risk
+cabin.extended[rows.fix.cabin.by.fare] <- predictCabinByFare(combi, rows.fix.cabin.by.fare)
+```
+
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#cabinFare_ss" class="button" data-toggle="collapse">safe check</a>
+
+##### {#cabinFare_ss .collapse}
+
+We check imputation results
+
+```{r}
+combi[rows.fix.cabin.by.fare,] %>% 
+    mutate (Cabin.Extended = cabin.extended[rows.fix.cabin.by.fare]) %>% 
+    filter (!is.na(Cabin.Extended)) %>% 
+    select (Cabin.Extended, Cabin, Ticket, Pclass, Fare, Fare.PerPerson) %>%
+    arrange (Pclass, Ticket)
+
+# check NA's count after predict (should be greather than 0)
+(.lastVal <- sum(!is.na(cabin.extended[rows.fix.cabin.by.fare])))
+```
+
+<a href="#cabinFare_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+####
+
+Using last _prediction rule_, we infer another `r .lastVal` values .... (every little helps). 
+This prediction rule is very aggresive, and I didn't have the time to test their correctness.
+
+
+Finally, I will move this new data into a new column named `Cabin.Extended` and this data will be used to generate `Side` and `Deck` information.
 
 ```{r}
 combi$Cabin.Extended <- cabin.extended
 ```
+
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+```{r warning=F}
+combi %>% group_by(Pclass) %>% summarise(count = n_distinct(Cabin))
+```
+Cabin data seems to be available for passengers in first class, but for second and third classes is more scarce.
+</div>
 
 
 ###Deck
@@ -857,19 +1014,21 @@ deck <- substring(combi$Cabin.Extended, 1, 1)
 rows.fix.cabin.unk <- is.na(deck)
 deck[rows.fix.cabin.unk] <- "UNK"
 combi$Deck <- deck
-rm(deck)
-
-.lastVal = prop.table(table(rows.fix.cabin.unk))
 ```
 
-As mentioned before, `Deck` an be extracted from `Cabin` data. Problem is that cabin information is scarce (`r round(.lastVal[["FALSE"]]*100)`% of known values), 
+```{r include=F}
+rm(deck)
+.lastVal = round(prop.table(table(rows.fix.cabin.unk)) * 100, 2)
+```
+
+As mentioned before, `Deck` can be extracted from `Cabin` data. Problem is that cabin information is scarce (`r .lastVal[["FALSE"]]`% of known values), 
 so I've got my own doubts about its usefulness.
 
 ```{r warning=F}
 plot(table(combi$Deck[rows.train], combi$Pclass[rows.train]), dnn=c("Deck","Class"), main="Class / Deck")
-boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100,])
+boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100 & combi$Fare > 0,])
 ```
-Looking at the plots, there is a single passenger which deck seems not valid:
+Looking at previous plots, there is a single passenger which deck seems not valid:
 
 ```{r}
 rows.fix.deck.t <- combi$Deck == "T"
@@ -900,7 +1059,7 @@ tapply(combi$Fare.PerPerson[rows.fix.deck.unk.temp], combi$Deck[rows.fix.deck.un
 tapply(combi$Fare[rows.fix.deck.unk.temp], combi$Deck[rows.fix.deck.unk.temp], summary)
 ```
 
-Using the boxplot (ignoring outliers), we know that most of the unknown cabins paid less than 20 pounds, 
+Using last boxplot, we know that most of the unknown cabins paid less than 20 pounds, 
 so they can't belong to A, B or C decks, where most people belonged to first and second class.
 The mosaic plot confirms that most passengers with unknown Cabin belong to third class passengers. 
 So we can extract a rule, for unknown deck passengers from third class paying the cheapest tickets, and move them to deck F.
@@ -910,21 +1069,32 @@ rows.fix.deck.unk <- (combi$Deck == "UNK" & combi$Pclass == "3" & combi$Fare < 2
 combi$Deck[rows.fix.deck.unk] <- "F"
 combi$Deck <- factor(combi$Deck)
 
-boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100,])
+boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100 & combi$Fare > 0,])
 ```
 
+The boxplot shows the flow of passengers from unknown to F deck.
+
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+```{r}
+# deck frequency table (%)
+(.lastVal <- round(prop.table(table(combi$Deck)) * 100, 2))
+```
+Applying former rules, `r 100 - as.numeric(.lastVal[["UNK"]])`% of the passenger's deck cabin location can be inferred.
+</div>
+
 ###Side
-The cabin info consists in a letter (corresponding to the deck) and a cabin number, 
+Cabin is encoded like a letter (corresponding to the deck) followed by the cabin number, 
 which (by convention) is odd for cabins on the starboard side and even for the port side.
-There is an exception to the convention: in deck E, passengers cabins for first and second class
+There is an exception to this convention: in deck E, passengers cabins for first and second class
 were located on port side.
 
 ```{r}
 sample(unique(combi$Cabin[!is.na(combi$Cabin)]),30)
 ```
 
-The problem is that the cabin data is not complete neither normalized. 
-The best case is when the cabin value is like "A26", which univocally identify deck and cabin. 
+The problem is that cabin data is not complete neither normalized. 
+Thus, best case is when the cabin value is like "A26", which univocally identify deck and cabin. 
 
 
 ```{r collapse=T, warning=F}
@@ -966,29 +1136,32 @@ If there is no cabin data, or the data doesn't contain a proper cabin number (fo
 Let's review some special cases ... how many "cabins" contains spaces?
 
 ```{r}
-rows.cabin.space <- grepl(" ", combi$Cabin)
-unique(combi$Cabin[rows.cabin.space])
+unique(grep(" ", combi$Cabin.Extended, value=T))
 ```
 
-Cabins in former case are contiguous (`"B96 B98"` or `"D10 D12"`). There is only a single case 
-where the side probability is not convenient (cabin `"B57 B59 B63 B66"`), 
+Cabins in former case are contiguous (`"B96 B98"` or `"D10 D12"`). There is a single case
+where the side probability is _special_ (cabin `"B57 B59 B63 B66"`), 
 as this "cabin" mixes odd and even cabins. In this case, the ratio between odd and even is the side probability (3/4).
 
 ```{r}
 combi %>% 
-    filter (Cabin %in% c("B57 B59 B63 B66","F G73","B96 B98")) %>% 
-    select (Pclass, Ticket, Cabin, Side, Side.Prob) %>% 
-    arrange (Ticket, Cabin)
+    filter (Cabin.Extended %in% c("B57 B59 B63 B66","F G73","B96 B98")) %>% 
+    select (Pclass, Ticket, Cabin.Extended, Side, Side.Prob) %>% 
+    arrange (Ticket, Cabin.Extended)
 ```
 
 Finally, `Side` is a categorical feature, based on the data returned by `Side.Prob`
 
 ```{r}
 table(combi$Side)
-(.lastVal = sum(is.na(combi$Cabin) | is.nan(combi$Side.Prob)))
 ```
 
-Unknown side category values (`r .lastVal`) came from passengers wih `Cabin` equal to NA or `Side.Prob` equal to NaN.
+```{r include=F}
+.lastVal = sum(is.na(combi$Cabin.Extended) | is.nan(combi$Side.Prob))
+```
+
+Unknown side category values (`r .lastVal`) came from passengers wih `Cabin` equal to NA or `Side.Prob` equal to NaN. 
+As explained before, side probabilities to NaN is for cabins with no cabin number:
 
 ```{r}
 combi %>% 
@@ -1000,53 +1173,25 @@ combi %>%
 
 ####
 
-The second trick will be based on `Fare` and `Pclass` data: 
-the fares show a regular distribution of values, based on the class, 
-so nearby cabins within the same class, share same fare. 
-
-```{r warning=F}
-predictCabinByFare <- function(data, rows.filter) {
-    ticket.fare <- data %>% 
-		filter(!is.na(Cabin.Extended) & Fare > 0) %>% 
-		group_by(Fare.PerPerson, Embarked, Pclass, Cabin.Extended) %>% 
-		summarise(max (n())) %>% 
-		group_by(Fare.PerPerson, Embarked, Pclass) %>% 
-		summarize_each(funs(first)) %>%
-		mutate (Cabin.Extended2 = Cabin.Extended) %>%
-		select (Fare.PerPerson, Embarked, Pclass, Cabin.Extended2)
-
-	rj <- right_join(ticket.fare, data)
-	return (rj$Cabin.Extended2[rows.filter])
-}
-
-rows.fix.cabin.by.fare <- which(is.na(cabin.extended))
-# check NA's count before predict (should be 0)
-sum(!is.na(cabin.extended[rows.fix.cabin.by.fare]))
-cabin.extended[rows.fix.cabin.by.fare] <- predictCabinByFare(combi, rows.fix.cabin.by.fare)
+<div class="alert alert-info">
+<span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
+```{r include=F}
+sideByCabin <- predictSide(combi %>% rowwise() %>% mutate (Side.Prob = inferSideProb(Cabin)))
+tf.sideByCabin <- prop.table(table(sideByCabin$Survived[rows.train], sideByCabin$Side[rows.train])) * 100
+rm(sideByCabin)
 ```
-
-<span class="glyphicon glyphicon-eye-open"></span> <a href="#cabinFare_ss" class="button" data-toggle="collapse">safe check</a>
-
-##### {#cabinFare_ss .collapse}
-
-We check imputation results
-
 ```{r}
-combi[rows.fix.cabin.by.fare,] %>% 
-    mutate (Cabin.Extended = cabin.extended[rows.fix.cabin.by.fare]) %>% 
-    filter (!is.na(Cabin.Extended)) %>% 
-    select (Cabin.Extended, Cabin, Ticket, Pclass, Fare, Fare.PerPerson) %>%
-    arrange (Pclass, Ticket)
-
-# check NA's count after predict (should be greather than 0)
-(.lastVal <- sum(!is.na(cabin.extended[rows.fix.cabin.by.fare])))
+# side frequency by cabin
+print(tf.sideByCabin)
+# side frequency by cabin extended
+prop.table(table(combi$Survived[rows.train], combi$Side[rows.train])) * 100
 ```
 
-Another `r .lastVal` values .... not bad at all
+The difference between Sides (starboard / portside) is minimal. But several 
+[essays](http://www.williammurdoch.net/man-08_starboard_evacuation.html) confirm 
+that the evacuation in the starboard side was more efficient than in the portside.
+</div>
 
-<a href="#cabinFare_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
-
-####
 
 ## Processing
 
@@ -1059,7 +1204,7 @@ After finishing pre-processing, we split back data into training and test sets.
 Then we split the training set in two batches, 80% for training and 20% for model validation
 
 ```{r}
-library(caret) 
+suppressMessages(library(caret))
 
 train.pre <- combi[rows.train,]
 train.pre$Fate <- factor(train.pre$Survived)
@@ -1073,10 +1218,67 @@ test.batch <- train.pre[-rows.batch,]
 
 ```
 
+### Prediction
+
+I tested several predictions methods, and I've got the best results using C5.0
+
+```{r warning=F}
+suppressMessages(library(doParallel)) # parallel procesing via cores
+registerDoParallel(2)
+suppressMessages(library(randomForest)) # random forests
+suppressMessages(library(ggthemes))
+```
+
+```{r pred, cache=T, warning=F}
+trc.recv <- trainControl(method = "repeatedcv", repeats = 10, summaryFunction = twoClassSummary, classProbs = TRUE)
+# training using training holdout
+train.c5.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple, train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
+```
+
+```{r pred_vi, cache=T}
+vi <- varImp(train.c5.best)
+vi.df <- data.frame(
+    variables = row.names(vi$importance), 
+    importance = vi$importance$Overall, 
+    rank = paste0("#", dense_rank(desc(vi$importance$Overall))))
+ggplot(vi.df[vi.df$importance > 5,], aes(x = reorder(variables, importance), y = importance, fill = importance)) + 
+    geom_bar(stat = "identity") + 
+    geom_text(aes(x = variables, y = 0.5, label= rank), vjust = 0.55, hjust = 0, size = 4) + 
+    labs(x="Features") + 
+    coord_flip() +
+    theme_few()
+```
+
+```{r pred_cv, cache=T}
+pred <- predict(train.c5.best, test.batch)
+(.lastVal <- confusionMatrix(pred, test.batch$Fate, positive="survived"))
+#plot(roc(as.numeric(pred), as.numeric(test.batch$Fate), auc=T))
+```
+
+The accuracy using test batch was about `r round(.lastVal$overall[["Accuracy"]] * 100, 2)`. It is good, but it looks like I'm overfitting, 
+because when uploading results to kaggle using the whole training set, I'm getting much worse predictions:
+
+```{r pred_full,cache=T,warning=F}
+# full model using whole training data
+train.c5.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Family.NameSimple, train.pre, method = "C5.0", metric = "ROC", trControl = trc.recv, tuneLength=5)
+pred <- predict(train.c5.best, test.pre)
+result <- data.frame(Survived = as.numeric(pred) - 1, PassengerId = test.pre$PassengerId)
+write.csv(result, "titanic.csv", quote=F, row.names=F)
+```
+
+```{r include=F}
+remove (vi, vi.df)
+```
+
+I'm missing something? Anyway, it's being a long journey, with a lot of learnings. 
+As I said at the beginning, any comment or suggestion will be very much appreciated.
+
+
+
 ## Single Model 
 
 Load libraries for machine learning classification
-```{r warning=F}
+```{r warning=F, cache=T}
 suppressMessages(library(doParallel)) # parallel procesing via cores
 registerDoParallel(2)
 suppressMessages(library(glmnet)) # linear regression
@@ -1380,7 +1582,7 @@ results.gbm <- model.summary(train.gbm)
 
 
 ```{r gbm_2, cache=T, warning=F}
-tune.grid.gbm <- expand.grid(shrinkage = 0.06319474, n.trees = c(150,200), interaction.depth = c(5, 6, 7), n.minobsinnode = c(1, 5))
+tune.grid.gbm <- expand.grid(shrinkage = 0.06319474, n.trees = c(150,200), interaction.depth = c(5, 6, 7), n.minobsinnode = c(1, 5)) 
 train.gbm.best <- train(Fate ~ Sex + Pclass + Fare.PerPerson + Family.Size + Title + Age + Ticket.Count + Embarked + Deck, train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, tuneGrid = tune.grid.gbm)
 ```
 
@@ -1590,7 +1792,7 @@ write.csv(result, "titanic.csv", quote=F, row.names=F)
 We will split the datasets in two batches: one with passengers for 1st and 2nd class, and the other for the rest of passengers
 
 
-```{r splitbypclass}
+```{r splitbypclass, eval=F}
 model.split.by.pclass <- function (data.train, data.test, procCM = T) {
 	rows.train.pclass3 <- data.train$Pclass == 3
 	rows.test.pclass3 <- data.test$Pclass == 3
@@ -1614,11 +1816,11 @@ model.split.by.pclass <- function (data.train, data.test, procCM = T) {
 }
 ```
 
-```{r splitbypclass_o, dependson="splitbypclass", cache=T}
+```{r splitbypclass_o, dependson="splitbypclass", cache=T, eval=F}
 result <- model.split.by.pclass (train.batch, test.batch)
 ```
 
-```{r splitbypclassrf}
+```{r splitbypclassrf, eval=F}
 model.split.by.pclass_rf <- function (data.train, data.test, procCM = T) {
 	rows.train.pclass3 <- data.train$Pclass == 3
 	rows.test.pclass3 <- data.test$Pclass == 3
@@ -1652,7 +1854,7 @@ Kaggle submission score: 0.79904
 result <- model.split.by.pclass_rf (train.pre, test.pre, F)
 ```
 
-```{r splitbypclassrfc5}
+```{r splitbypclassrfc5, eval=F}
 model.split.by.pclass_rf <- function (data.train, data.test, procCM = T) {
 	rows.train.pclass3 <- data.train$Pclass == 3
 	rows.test.pclass3 <- data.test$Pclass == 3
@@ -1676,11 +1878,11 @@ model.split.by.pclass_rf <- function (data.train, data.test, procCM = T) {
 }
 ```
 
-```{r splitbypclassrfc5_o, dependson="splitbypclassrfc5", cache=T}
+```{r splitbypclassrfc5_o, dependson="splitbypclassrfc5", cache=T, eval=F}
 result <- model.split.by.pclass_rf (train.batch, test.batch)
 ```
 
-```{r splitbypclassgbmc5}
+```{r splitbypclassgbmc5, eval=F}
 model.split.by.pclass_gbm <- function (data.train, data.test, procCM = T) {
 	rows.train.pclass3 <- data.train$Pclass == 3
 	rows.test.pclass3 <- data.test$Pclass == 3
@@ -1705,7 +1907,7 @@ model.split.by.pclass_gbm <- function (data.train, data.test, procCM = T) {
 }
 ```
 
-```{r splitbypclassgbmc5_o, dependson="splitbypclassgbmc5", cache=T}
+```{r splitbypclassgbmc5_o, dependson="splitbypclassgbmc5", cache=T, eval=F}
 result <- model.split.by.pclass_gbm (train.batch, test.batch, F)
 ```
 
