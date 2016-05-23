@@ -1072,7 +1072,7 @@ combi$Deck <- factor(combi$Deck)
 boxplot(Fare ~ Deck, combi[rows.train & combi$Fare < 100 & combi$Fare > 0,])
 ```
 
-The boxplot shows the flow of passengers from unknown to F deck.
+After applying last rule, boxplot shows the flow of passengers from unknown deck to F deck.
 
 <div class="alert alert-info">
 <span class="glyphicon glyphicon-info-sign"></span> <b>interesting facts</b>
@@ -1160,7 +1160,7 @@ table(combi$Side)
 .lastVal = sum(is.na(combi$Cabin.Extended) | is.nan(combi$Side.Prob))
 ```
 
-Unknown side category values (`r .lastVal`) came from passengers wih `Cabin` equal to NA or `Side.Prob` equal to NaN. 
+Unknown side category values (`r .lastVal`) came from passengers with `Cabin` equal to NA or `Side.Prob` equal to NaN. 
 As explained before, side probabilities to NaN is for cabins with no cabin number:
 
 ```{r}
@@ -1270,8 +1270,8 @@ write.csv(result, "titanic.csv", quote=F, row.names=F)
 remove (vi, vi.df)
 ```
 
-I'm missing something? Anyway, it's being a long journey, with a lot of learnings. 
-As I said at the beginning, any comment or suggestion will be very much appreciated.
+Do I miss something? Anyway, it's being a long journey, with a lot of learnings. 
+As I said at the beginning, any comment or suggestion will be very much appreciated. Thanks for the reading.
 
 
 
