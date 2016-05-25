@@ -23,8 +23,12 @@ table.table {
 }
 
 .section.level5.collapse {
-	padding: 1px 4px;
+	padding: 10px;
 	background-color: #FBE8E7;
+    margin: 0 -10.5px;
+    line-height: 1.42;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
 }
 
 pre.r { 
@@ -57,7 +61,7 @@ p img {
     margin: 2px auto;
 }
 
-table + .caption {
+table + .caption, p + .caption {
     text-align: center;
     margin-top: -24px;
     padding: 10px;
@@ -67,7 +71,11 @@ table + .caption {
 .glyphicon-eye-open {
     color: #eb6864;
     padding: 17px;
+    padding-right: 0;
 }
+
+.level5 > h5  { display: none; }
+
 </style>
 
 ## Introduction
@@ -96,6 +104,8 @@ library(lubridate) # dates
 library(caret) # classification algorithm
 library(stringr)
 library(mice) # imputation
+library(stringdist) # string distance methods
+library(knitr) # kable
 ``` 
 
 ```{r, include=F}
@@ -118,7 +128,7 @@ test <- read_csv(file = paste0(csv.folder, "test.csv"))
 ``` 
 
 Then, I combine both data frames into a single one, named `full`. 
-I did some column renaming in order to normalize naming between datasets.
+I did some column renaming in order to normalize column naming between datasets.
 
 ```{r}
 full <- train %>% 
@@ -134,7 +144,8 @@ rows.train <- !is.na(full$OutcomeType)
 
 glimpse(full, width=100)
 ``` 
-The full dataset contains 9 variables and 38185 rows of data
+
+The full dataset contains `r dim(full)[2]` variables and `r dim(full)[1]` rows of data.
 
 | Column     | Description    |
 |------------|----------------|
@@ -152,33 +163,25 @@ There were another columns in the original files, but were not relevant for anal
 
 ### Breed
 
+There are no missing values for breed feature. Let's review the data inside the column:
+
 ```{r}
+# missing values should be zero
+sum(is.na(full$Breed))
 sample(unique(full$Breed), 30)
 ``` 
 
-There is clearly two kinds of breeds: pure and mixed, so let's flag mixed
+There are clearly two kinds of breeds: pure and mixed (in case of mixed breed, a "Mix" suffix appears on `Breed`)
 ```{r}
 full$Breed.IsMix <- grepl("Mix$", full$Breed)
 ```
 
-On a second inspection, breed feature seem to have a hair feature embedded. Let's examine it using regular expressions
-
+On a second look, there are some breeds with embedded hair features. This can be easily inspected using a regular expression looking for _hair_:
 ```{r}
 unique(str_match(full$Breed,"(?i)[ a-z]*hair[a-z]*")[,1])
 ``` 
 
-I count 5 different hair categories: long, medium, short, wire, hairless.
-
-```{r}
-# take first part of breed
-breed.main <- sapply(full$Breed, function(x) gsub(' Mix', '', strsplit(x, split = '/')[[1]][1]))
-# then remove hair
-breed.main <- str_trim(gsub("Longhair|Shorthair|Wirehaired|Wire Hair|Wirehair|Hairless|Medium Hair", "", breed.main))
-
-full$Breed.Main <- breed.main
-``` 
-
-Let's create hair feature
+I count 5 different hair categories: long, medium, short, wire, hairless. Following this pattern, I create a new column named `Breed.Hair`
 
 ```{r}
 full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
@@ -190,20 +193,74 @@ full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
 table(full$Breed.Hair, full$AnimalType)
 ``` 
 
-Finally, we can add the size ... for the moment, just for dogs and for pure breed
+I will create a new column named `Breed.Main` which does not contained any 
+_mix_ or _hair_ word, only the reference to the main breed.There are other suffixes used like "Dog" which could be removed, but for now, 
+I think this is enough.
 
-```{r eval=F}
-#dogs
-dogSizes <- read_csv("dog_size.csv")
+```{r}
+# take first part of breed
+breed.main <- sapply(full$Breed, function(x) gsub(' Mix', '', strsplit(x, split = '/')[[1]][1]))
+# then remove hair
+breed.main <- str_trim(gsub("Longhair|Shorthair|Wirehaired|Wire Hair|Wirehair|Hairless|Medium Hair", "", breed.main))
 
-full[full$IsMix==F,] <- right_join (dogSizes[,c("Breed.Main","Size")], full[full$IsMix==F,])
-full$Size[is.na(full$Size)] <- "unknown"
-
-#cats
-#catBreed <- read_csv("cat_breed.csv")
-#full[full$IsMix==F,] <- right_join (catBreed[,c("Breed.Main","Size")], full[full$IsMix==F,])
+full$Breed.Main <- breed.main
 ``` 
 
+If the breed is not mixed, we can foresee the average size of the animal. 
+In the case of dogs, I will use a second dataframe, which correlates breeds with their size.
+
+```{r}
+# local / remote loading
+dogSize <- read_csv("dog_size.csv")
+
+rows.dog.not.mixed <- full$Breed.IsMix==F & full$AnimalType == "Dog"
+```
+
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#dogSize_ss" class="button" data-toggle="collapse">safe check</a>
+
+##### {#dogSize_ss .collapse}
+
+The matching between breeds is not exact. But we can improve this matching using algorithms based on string distance.
+I will check some of them:
+
+```{r }
+
+dogs.breeds <- full[rows.dog.not.mixed,c("Breed","Breed.Main")]
+dogs.breeds.match <- amatch(dogs.breeds$Breed.Main, dogSize$Breed.Main, method = "jw", p = 0)
+dogs.breeds$Breed.Match <- sapply(dogs.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", dogSize$Breed.Main[x]) })
+table(dogs.breeds$Breed.Match == "UNK")
+#dogs.breeds[dogs.breeds$Breed.Match == "UNK",]
+
+kable(unique(dogs.breeds[dogs.breeds$Breed.Main != dogs.breeds$Breed.Match & dogs.breeds$Breed.Match != "UNK",]))
+
+dogs.breeds.match <- amatch(dogs.breeds$Breed.Main, dogSize$Breed.Main, method="osa")
+dogs.breeds$Breed.Match <- sapply(dogs.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", dogSize$Breed.Main[x]) })
+table(dogs.breeds$Breed.Match == "UNK")
+
+kable(unique(dogs.breeds[dogs.breeds$Breed.Main != dogs.breeds$Breed.Match & dogs.breeds$Breed.Match != "UNK",]))
+
+dogs.breeds.match <- amatch(dogs.breeds$Breed.Main, dogSize$Breed.Main, method="cosine")
+dogs.breeds$Breed.Match <- sapply(dogs.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", dogSize$Breed.Main[x]) })
+table(dogs.breeds$Breed.Match == "UNK")
+
+kable(unique(dogs.breeds[dogs.breeds$Breed.Main != dogs.breeds$Breed.Match & dogs.breeds$Breed.Match != "UNK",]))
+``` 
+
+Best one seems to be `cosine`.
+
+<a href="#dogSize_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+##### 
+
+
+```{r}
+# dogs.breeds.match vector is using cosine distance (see former safe check for further details)
+full$Size[rows.dog.not.mixed] <- sapply(dogs.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", dogSize$Size[x]) })
+```
+
+```{r include=F}
+rm(dogSize)
+```
 
 ### Name
 
@@ -211,7 +268,7 @@ Does having a name is correlated with the outcome?
 
 ```{r}
 full$Name.NoName <- is.na(full$Name)
-prop.table(table(full$Name.NoName))
+round(prop.table(table(full$Name.NoName, full$OutcomeType, dnn = c("HasName", "OutcomeType"))) * 100, 2)
 ``` 
 
 ### Date
@@ -298,22 +355,58 @@ prop.table(table(full$Sex[full$AnimalType=="Dog"]))
 rows.fix.sex.unknown <- grepl("Unknown", full$SexuponOutcome)
 full$SexuponOutcome[rows.fix.sex.unknown] <- NA_character_
 rows.fix.sex.na <- is.na(full$SexuponOutcome)
+table(rows.fix.sex.na)
 
 unique(full$SexuponOutcome)
 
-full$SexuponOutcome <- as.factor(full$SexuponOutcome)
+#full$SexuponOutcome <- as.factor(full$SexuponOutcome)
 ```
 
 ```{r mice, cache=T}
 full.mice <- complete(mice(full[, c("AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Days", "Breed.IsMix", "Breed.Main")], method = "rf"))
 ```
 
+<span class="glyphicon glyphicon-eye-open"></span> <a href="#mice_ss" class="button" data-toggle="collapse">safe check</a>
+
+##### {#mice_ss .collapse}
+
+
+```{r}
+#new ages
+kable(full.mice[rows.fix.age,])
+
+#new sex .. there are too many!!
+#kable(full.mice[rows.fix.sex.na,])
+
+age.type <- full[!rows.fix.age,] %>% 
+	mutate (AgeType = "Age (original)") %>% 
+	select (Age.Days, AgeType) %>% 
+	bind_rows(full.mice %>% 
+				mutate (AgeType="Age (after MICE)") %>% 
+				select (Age.Days, AgeType))
+ggplot(age.type, aes(x = Age.Days)) +
+	geom_density(aes(fill = factor(AgeType)), alpha = 0.6) +
+	#scale_fill_manual(values = c(alpha("green", 0.25), alpha("blue", 0.4))) +
+	labs(x = 'Age', fill = '')
+```
+
+<a href="#mice_ss" data-toggle="collapse" class="text-right btn-block glyphicon glyphicon-remove"></a>
+
+##### 
+
+
 ```{r}
 #full$SexuponOutcome[rows.fix.sexoutcome] <- full$Sex[rows.fix.sexoutcome]
+full$Age.Days <- full.mice$Age.Days
+full$SexuponOutcome <- full.mice$SexuponOutcome
 full$Sex.IsUnknown <- rows.fix.sex.unknown
 full$Sex.IsIntact <- grepl("Intact", full$SexuponOutcome)
 full$Sex <- gsub("Neutered |Intact |Spayed ", "", full$SexuponOutcome)
 ``` 
+
+```{r include=F}
+rm (age.type, full.mice)
+```
 
 ### Color
 
@@ -325,16 +418,16 @@ sample(unique(full$Color), 30)
 ```
 
 There are some colors expressed as a mix of colors, and there are flat colors too. We can extract a feature (main color)
-in order to identify first color in the field. Then, another feature can be used to know if the animal is single / mix colored.
+in order to identify first color in the field. Then, another feature can be used to know if the animal is flat / mix colored.
 
 ```{r}
 full$Color.Main <- sapply(full$Color, function(x) strsplit(x, split = '/| ')[[1]][1])
 full$Color.IsFlat <- !grepl("/", full$Color)
 ``` 
 
-There are several ways to encode colors. Most common encoding used in computers is rgb (red, green, blue components). 
-But for humans, this encoding doesn't give any insight, this is the reason there are other encodings like 
-HSV (hue, saturation, vibrance components) which is based in how humans perceive the colors.
+There are several ways to encode colors. Most common encoding used in computers is RGB (red, green, blue components). 
+But for humans, this encoding doesn't give any insight, this is the reason there are other color encodings like 
+[HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) (hue, saturation, vibrance components) which is based in how humans perceive the colors.
 
 R also has a builtin library for color names. Not all the colors in the `Color.Main` column are included in the library, 
 but is a good starting point. From there, I will add some rules in order to complete the set of colors.
@@ -387,7 +480,11 @@ Look for examples of animaltype/breed and adopted/
 ```{r}
 factorVars <- c("OutcomeType", "AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Hour", "Breed.Main", "Color.Main", "Sex", "Breed.Hair")
 full[factorVars] <- lapply(full[factorVars], function(x) as.factor(x))
+
+glimpse(full, width=100)
 ``` 
+
+My original dataframe had `r dim(full.original)[2]` variables, and the process of feature engineering added `r dim(full)[2]-dim(full.original)[2]` more variables.
 
 ```{r}
 
@@ -409,15 +506,15 @@ sessionInfo()
 pre-process dog size
 ```{r eval=F}
 dogSize <- read_csv(file = paste0(csv.folder, "dog_size.csv"))
-dogBreedMatch <- str_match(dogSize$Breed, "(([a-zA-Z]*) - )?([ a-zA-Z]*)")
-dogBreedMain <- paste(dogBreedMatch[, 4], ifelse(is.na(dogBreedMatch[, 3]), "", dogBreedMatch[, 3]))
-dogBreedMain <- str_trim(dogBreedMain)
+#dogBreedMatch <- str_match(dogSize$Breed, "(([a-zA-Z]*) - )?([ a-zA-Z]*)")
+#dogBreedMain <- paste(dogBreedMatch[, 4], ifelse(is.na(dogBreedMatch[, 3]), "", dogBreedMatch[, 3]))
+dogBreedMain <- str_trim(gsub("Longhair|Shorthair|Wirehaired|Wire Hair|Wirehair|Hairless|Medium Hair", "", dogBreedMain))
 dogSize$Breed.Main <- dogBreedMain
 #write_csv(dogSize, "dog_size.csv")
 ``` 
 
 pre-process cat breeds
 ```{r}
-catBreed <- read_csv(file = paste0(csv.folder, "cat_breed.csv"))
-str(catBreed)
+#catBreed <- read_csv(file = paste0(csv.folder, "cat_breed.csv"))
+#str(catBreed)
 ```
