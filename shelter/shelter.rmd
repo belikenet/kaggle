@@ -190,8 +190,24 @@ full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
 					ifelse (grepl("Hairless", full$Breed), "hairless",
 					ifelse (grepl("Medium Hair", full$Breed), "medium", "unknown")))))
 
-table(full$Breed.Hair, full$AnimalType)
+table(full$Breed.Hair, full$AnimalType, dnn=c("Hair","AnimalType"))
 ``` 
+```{r echo=F, warning=F}
+library(reshape2)
+tf <- as.data.frame.matrix(table(full$Breed.Hair, full$AnimalType))
+tf$HairType <- rownames(tf)
+tf <- melt(tf, variable.name = "AnimalType")
+tf$value[tf$AnimalType == "Cat"] <- -tf$value[tf$AnimalType == "Cat"]
+
+ggplot(data = tf, aes(x = as.factor(HairType), y = value, fill = AnimalType)) +
+    geom_bar(data = tf[tf$AnimalType == "Dog",], stat = "identity") +
+    geom_bar(data = tf[tf$AnimalType == "Cat",], stat = "identity") +
+    geom_text(aes(label = abs(value)), size = 3, check_overlap = T, vjust = "outward") +
+    scale_y_continuous(breaks = seq(-15000, 15000, 5000), labels = abs(seq(-15000, 15000, 5000))) +
+    xlab("Hair Type") + ylab("count") + 
+    coord_flip()
+```
+
 
 I will create a new column named `Breed.Main` which does not contained any 
 _mix_ or _hair_ word, only the reference to the main breed.There are other suffixes used like "Dog" which could be removed, but for now, 
@@ -347,23 +363,41 @@ Basically, text field is translated to a numeric field (using day units)
 
 ### Sex
 
+Let's check Sex column for missing values:
+
 ```{r}
-# imputate missing sex
-prop.table(table(full$Sex[full$AnimalType=="Cat"]))
-prop.table(table(full$Sex[full$AnimalType=="Dog"]))
-
-rows.fix.sex.unknown <- grepl("Unknown", full$SexuponOutcome)
-full$SexuponOutcome[rows.fix.sex.unknown] <- NA_character_
 rows.fix.sex.na <- is.na(full$SexuponOutcome)
-table(rows.fix.sex.na)
-
-unique(full$SexuponOutcome)
-
-#full$SexuponOutcome <- as.factor(full$SexuponOutcome)
+sum(rows.fix.sex.na)
 ```
 
+There is a single missing value. We can safely imputate to "Unknown".
+
+```{r}
+full$SexuponOutcome[rows.fix.sex.na] <- "Unknown"
+rows.fix.sex.unknown <- grepl("Unknown", full$SexuponOutcome)
+
+.lastVal <- round(prop.table(table(rows.fix.sex.unknown))*100,2)
+```
+
+`r .lastVal[["TRUE"]]`% of the animals are under the "Unknown" sex category. We can plot a density bar graph on sex by animal type:
+
+```{r}
+# imputate missing sex
+#round(prop.table(table(full$SexuponOutcome[full$AnimalType=="Cat"])) * 100,2)
+#round(prop.table(table(full$SexuponOutcome[full$AnimalType=="Dog"])) * 100,2)
+ggplot(full[rows.train,]) + 
+	geom_bar(aes(x = as.factor(AnimalType), fill = OutcomeType), position = "fill") + 
+	xlab("Animal Type") + ylab("%")
+```
+
+```{r include=F}
+.lastVal <- unique(full$SexuponOutcome)
+```
+
+There are `r length(.lastVal)` different values of sex: `r .lastVal`.
+
 ```{r mice, cache=T}
-full.mice <- complete(mice(full[, c("AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Days", "Breed.IsMix", "Breed.Main")], method = "rf"))
+full.mice <- complete(mice(full[, c("AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Days", "Breed.IsMix", "Breed.Main")], method = "rf")) 
 ```
 
 <span class="glyphicon glyphicon-eye-open"></span> <a href="#mice_ss" class="button" data-toggle="collapse">safe check</a>
@@ -478,22 +512,102 @@ Look for examples of animaltype/breed and adopted/
 ## Processing
 
 ```{r}
-factorVars <- c("OutcomeType", "AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Hour", "Breed.Main", "Color.Main", "Sex", "Breed.Hair")
+factorVars <- c("OutcomeType", "AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Hour", "Breed.Main", "Color.Main", "Sex", "Sex.IsUnknown", "Sex.IsIntact", "Breed.Hair")
 full[factorVars] <- lapply(full[factorVars], function(x) as.factor(x))
 
 glimpse(full, width=100)
 ``` 
 
+```{r cache=T}
+train.pre <- full[rows.train,]
+train.pre$OutcomeType <- as.factor(train.pre$OutcomeType)
+test.pre <- full[!rows.train,]
+test.pre$OutcomeType <- NA
+
+rows.batch <- createDataPartition(train.pre$OutcomeType, p = 0.8, list = FALSE)
+train.batch <- train.pre[rows.batch,]
+test.batch <- train.pre[-rows.batch,]
+``` 
+
 My original dataframe had `r dim(full.original)[2]` variables, and the process of feature engineering added `r dim(full)[2]-dim(full.original)[2]` more variables.
 
+### Prediction
+
+I tested several predictions methods, and I've got the best results using
+
+```{r warning=F}
+suppressMessages(library(doParallel)) # parallel procesing via cores
+registerDoParallel(2)
+suppressMessages(library(randomForest)) # random forests
+suppressMessages(library(ggthemes))
+```
+
+```{r}
+trc.recv <- trainControl(method = "repeatedcv", repeats = 10, classProbs = TRUE)
+```
+
+```{r modelSummary}
+model.summary <- function (train.model, data = test.batch, procCM = T) {
+	if (train.model$method == "glm") 
+	{
+		message("ANOVA")
+		print(anova(train.model$finalModel, test = "Chisq"))
+    } else if (train.model$method == "gbm" || train.model$method == "glm") {
+		message("SUMMARY")
+		print (summary(train.model))
+	} else {
+		message("SUMMARY")
+		print (train.model)
+	}
+
+	if (train.model$method != "knn") 
+	{
+		message ("VARIMP")
+		print (varImp(train.model))
+	}
+
+	pred <- predict(train.model, data, type="vote")
+	if (procCM) 
+	{
+		message("Confusion Matrix")
+		print (confusionMatrix(pred, data$SexuponOutcome))
+		#print (roc(as.numeric(pred), as.numeric(data$SexuponOutcome), auc=T))
+	}
+	return (pred)
+}
+```
+
+```{r rf, cache=T}
+train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Breed + Breed.IsMix + Breed.Hair + Breed.Main + Month + Year + Weekday + Age.Days + Sex + Sex.IsUnknown + Sex.IsIntact + Color.IsFlat + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv)
+```
+
+```{r dependson="rf", cache=T}
+results.rf <- model.summary(train.rf)
+```
+
 ```{r}
 
 ``` 
 
+
 ```{r}
 
 ``` 
 
+
+```{r}
+
+``` 
+
+
+```{r}
+
+``` 
+
+
+```{r}
+
+``` 
 
 ## Notes
 ```{r}
