@@ -268,11 +268,30 @@ Best one seems to be `cosine`.
 
 ##### 
 
-
 ```{r}
 # dogs.breeds.match vector is using cosine distance (see former safe check for further details)
 full$Size[rows.dog.not.mixed] <- sapply(dogs.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", dogSize$Size[x]) })
 ```
+
+```{r}
+# local / remote loading
+catBreed <- read_csv("cat_breed.csv")
+
+rows.cat.not.mixed <- full$Breed.IsMix==F & full$AnimalType == "Cat"
+cats.breeds <- full[rows.cat.not.mixed,c("Breed","Breed.Main")]
+cats.breeds.match <- amatch(cats.breeds$Breed.Main, catBreed$Breed.Main, method = "cosine")
+cats.breeds$Breed.Match <- sapply(cats.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", catBreed$Breed.Main[x]) })
+table(cats.breeds$Breed.Match == "UNK")
+
+kable(unique(cats.breeds[cats.breeds$Breed.Main != cats.breeds$Breed.Match & cats.breeds$Breed.Match != "UNK",]))
+```
+
+```{r}
+full$Size[rows.cat.not.mixed] <- sapply(cats.breeds.match, FUN = function (x) { ifelse(is.na(x), "UNK", catBreed$Size[x]) })
+
+full$Size[is.na(full$Size)] <- "UNK"
+```
+
 
 ```{r include=F}
 rm(dogSize)
@@ -511,16 +530,18 @@ Look for examples of animaltype/breed and adopted/
 
 ## Processing
 
-```{r}
-factorVars <- c("OutcomeType", "AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Hour", "Breed.Main", "Color.Main", "Sex", "Sex.IsUnknown", "Sex.IsIntact", "Breed.Hair")
+```{r factors}
+factorVars <- c("AnimalType", "SexuponOutcome", "Breed", "Color", "Age.Unit", "Weekday", "Month", "Breed.Main", "Color.Main", "Sex", "Sex.IsUnknown", "Sex.IsIntact", "Breed.Hair")
 full[factorVars] <- lapply(full[factorVars], function(x) as.factor(x))
 
 glimpse(full, width=100)
 ``` 
 
-```{r cache=T}
+My original dataframe had `r dim(full.original)[2]` variables, and the process of feature engineering added `r dim(full)[2]-dim(full.original)[2]` more variables.
+
+```{r dependson="factors", cache=T}
 train.pre <- full[rows.train,]
-train.pre$OutcomeType <- as.factor(train.pre$OutcomeType)
+train.pre$OutcomeType <- as.factor(train.pre$OutcomeType) 
 test.pre <- full[!rows.train,]
 test.pre$OutcomeType <- NA
 
@@ -528,8 +549,6 @@ rows.batch <- createDataPartition(train.pre$OutcomeType, p = 0.8, list = FALSE)
 train.batch <- train.pre[rows.batch,]
 test.batch <- train.pre[-rows.batch,]
 ``` 
-
-My original dataframe had `r dim(full.original)[2]` variables, and the process of feature engineering added `r dim(full)[2]-dim(full.original)[2]` more variables.
 
 ### Prediction
 
@@ -543,7 +562,7 @@ suppressMessages(library(ggthemes))
 ```
 
 ```{r}
-trc.recv <- trainControl(method = "repeatedcv", repeats = 10, classProbs = TRUE)
+trc.recv <- trainControl(method = "cv", repeats = 5, classProbs = TRUE, verboseIter = T, allowParallel = T)
 ```
 
 ```{r modelSummary}
@@ -566,29 +585,66 @@ model.summary <- function (train.model, data = test.batch, procCM = T) {
 		print (varImp(train.model))
 	}
 
-	pred <- predict(train.model, data, type="vote")
+	pred <- predict(train.model, data, type="prob")
+    predRaw <- predict(train.model, data, type="raw")
+
 	if (procCM) 
 	{
 		message("Confusion Matrix")
-		print (confusionMatrix(pred, data$SexuponOutcome))
-		#print (roc(as.numeric(pred), as.numeric(data$SexuponOutcome), auc=T))
+		print (confusionMatrix(predRaw, data$OutcomeType))
+		#print (roc(as.numeric(pred), as.numeric(data$OutcomeType), auc=T))
 	}
 	return (pred)
 }
 ```
 
-```{r rf, cache=T}
-train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Breed + Breed.IsMix + Breed.Hair + Breed.Main + Month + Year + Weekday + Age.Days + Sex + Sex.IsUnknown + Sex.IsIntact + Color.IsFlat + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv)
+```{r gbm2, cache=T, warning=F}
+train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Month + Year + Weekday + Age.Days + Sex + Sex.IsUnknown + Sex.IsIntact, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv)
+``` 
+
+```{r dependson="gbm2", cache=T}
+results.gbm <- model.summary(train.gbm)
 ```
 
+```{r gbm3, cache=T, warning=F}
+train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv) 
+``` 
+
+```{r dependson="gbm3", cache=T}
+results.gbm <- model.summary(train.gbm) 
+```
+
+```{r gbm4, cache=T, warning=F}
+train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Breed.Main + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, preProcess=c("nzv")) 
+``` 
+
+```{r dependson="gbm4", cache=T}
+results.gbm <- model.summary(train.gbm) 
+```
+
+```{r rf, cache=T, warning=F}
+train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
+``` 
+
 ```{r dependson="rf", cache=T}
+results.rf <- model.summary(train.rf) 
+```
+
+```{r rf1, cache=T, warning=F}
+train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
+``` 
+
+```{r dependson="rf1", cache=T}
 results.rf <- model.summary(train.rf)
 ```
 
-```{r}
-
+```{r c5, cache=T, warning=F}
+train.c5 <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv)
 ``` 
 
+```{r dependson="c5", cache=T}
+results.c5 <- model.summary(train.c5)  
+```
 
 ```{r}
 
