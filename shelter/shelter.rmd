@@ -192,7 +192,13 @@ full$Breed.Hair <-	ifelse (grepl("Longhair", full$Breed), "longhair",
 					ifelse (grepl("Medium Hair", full$Breed), "medium", "unknown")))))
 
 table(full$Breed.Hair, full$AnimalType, dnn=c("Hair","AnimalType"))
-``` 
+
+ggplot(full[rows.train,], aes(x = Breed.Hair, fill = OutcomeType)) +
+   geom_bar(position = 'fill') +
+   facet_wrap( ~ AnimalType) +
+   theme(axis.text.x = element_text(angle = 90))
+```
+ 
 ```{r echo=F, warning=F}
 library(reshape2)
 tf <- as.data.frame.matrix(table(full$Breed.Hair, full$AnimalType))
@@ -396,8 +402,6 @@ convertToDays <- ifelse(full$Age.Unit == 'day', 1,
               ifelse(full$Age.Unit == 'year', 365, NA))))
 full$Age.Days <- full$Age.Value * convertToDays
 
-full$Age.IsAdult <- full$Age.Days >= 365
-
 summary(full$Age.Days)
 ``` 
 
@@ -484,6 +488,12 @@ full[rows.train,] %>%
     summarise(count = n()) %>%
     streamgraph("OutcomeType", "count", "Age.Days", offset = "expand", scale = "continuous", interpolate = "basis") %>%
 	sg_legend(T, "Outcome type:")
+
+full$Age.IsAdult <- full$Age.Days >= 365
+
+ggplot(full[rows.train,], aes(x = Age.IsAdult, fill = OutcomeType)) +
+  geom_bar(position = 'fill', colour = 'black') +
+  facet_wrap(~ AnimalType)
 
 ``` 
 
