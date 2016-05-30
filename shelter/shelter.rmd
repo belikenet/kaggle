@@ -115,6 +115,7 @@ options(error = function() {
 })
 knitr::opts_chunk$set(fig.align = 'center')
 set.seed(3874)
+theme_set(theme_few())
 ``` 
 
 I used `read_csv`function in order to read training and test shelter data
@@ -210,7 +211,7 @@ ggplot(data = tf, aes(x = as.factor(HairType), y = value, fill = AnimalType)) +
 
 
 I will create a new column named `Breed.Main` which does not contained any 
-_mix_ or _hair_ word, only the reference to the main breed.There are other suffixes used like "Dog" which could be removed, but for now, 
+_mix_ or _hair_ term, only the reference to the main breed.There are other suffixes used like "Dog" which could be removed, but for now, 
 I think this is enough.
 
 ```{r}
@@ -302,8 +303,14 @@ rm(dogSize)
 Does having a name is correlated with the outcome?
 
 ```{r}
-full$Name.NoName <- is.na(full$Name)
-round(prop.table(table(full$Name.NoName, full$OutcomeType, dnn = c("HasName", "OutcomeType"))) * 100, 2)
+full$Name.IsUnnamed <- is.na(full$Name)
+round(prop.table(table(full$Name.IsUnnamed, full$OutcomeType, dnn = c("HasName", "OutcomeType"))) * 100, 2)
+``` 
+
+```{r}
+ggplot(full[rows.train,], aes(x = Name.IsUnnamed, fill = OutcomeType)) +
+  geom_bar(position = 'fill', colour = 'black') +
+  facet_wrap(~ AnimalType)
 ``` 
 
 ### Date
@@ -337,6 +344,22 @@ As I suspected, there is certain seasonal pattern: per months, july and december
 (matching end school and christmas holidays), and april worst month for adoptions.
 Shelters are open 7 days a week, as result, saturdays and sundays are best days for adoptions. 
 These are very reasonable deductions, following human customs.
+
+```{r}
+library(streamgraph)
+full[rows.train,] %>% 
+	group_by(Year, OutcomeType) %>% 
+	summarise(count = n()) %>%
+	streamgraph("OutcomeType", "count", "Year", offset="expand", interactive=T) %>% 
+	sg_axis_x(1, "year", "%Y") %>% 
+	sg_legend(T, "Outcome type:")
+
+full[rows.train,] %>%
+    group_by(Hour, OutcomeType) %>%
+    summarise(count = n()) %>%
+    streamgraph("OutcomeType", "count", "Hour", offset = "expand", scale="continuous", interactive=T, interpolate="basis") %>% 
+	sg_legend(T, "Outcome type:")
+```
 
 ### AnimalType
 
@@ -455,6 +478,13 @@ full$SexuponOutcome <- full.mice$SexuponOutcome
 full$Sex.IsUnknown <- rows.fix.sex.unknown
 full$Sex.IsIntact <- grepl("Intact", full$SexuponOutcome)
 full$Sex <- gsub("Neutered |Intact |Spayed ", "", full$SexuponOutcome)
+
+full[rows.train,] %>%
+    group_by(Age.Days, OutcomeType) %>%
+    summarise(count = n()) %>%
+    streamgraph("OutcomeType", "count", "Age.Days", offset = "expand", scale = "continuous", interpolate = "basis") %>%
+	sg_legend(T, "Outcome type:")
+
 ``` 
 
 ```{r include=F}
@@ -599,7 +629,7 @@ model.summary <- function (train.model, data = test.batch, procCM = T) {
 ```
 
 ```{r gbm2, cache=T, warning=F}
-train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Month + Year + Weekday + Age.Days + Sex + Sex.IsUnknown + Sex.IsIntact, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv)
+train.gbm <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Month + Year + Weekday + Age.Days + Sex + Sex.IsUnknown + Sex.IsIntact, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv)
 ``` 
 
 ```{r dependson="gbm2", cache=T}
@@ -607,7 +637,7 @@ results.gbm <- model.summary(train.gbm)
 ```
 
 ```{r gbm3, cache=T, warning=F}
-train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv) 
+train.gbm <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv) 
 ``` 
 
 ```{r dependson="gbm3", cache=T}
@@ -615,7 +645,7 @@ results.gbm <- model.summary(train.gbm)
 ```
 
 ```{r gbm4, cache=T, warning=F}
-train.gbm <- train(OutcomeType ~ Name.NoName + AnimalType + Breed.Main + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, preProcess=c("nzv")) 
+train.gbm <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Breed.Main + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "gbm", metric = "ROC", trControl = trc.recv, preProcess=c("nzv")) 
 ``` 
 
 ```{r dependson="gbm4", cache=T}
@@ -623,7 +653,7 @@ results.gbm <- model.summary(train.gbm)
 ```
 
 ```{r rf, cache=T, warning=F}
-train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
+train.rf <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Size + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
 ``` 
 
 ```{r dependson="rf", cache=T}
@@ -631,7 +661,7 @@ results.rf <- model.summary(train.rf)
 ```
 
 ```{r rf1, cache=T, warning=F}
-train.rf <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
+train.rf <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "rf", metric = "ROC", trControl = trc.recv) 
 ``` 
 
 ```{r dependson="rf1", cache=T}
@@ -639,7 +669,7 @@ results.rf <- model.summary(train.rf)
 ```
 
 ```{r c5, cache=T, warning=F}
-train.c5 <- train(OutcomeType ~ Name.NoName + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv)
+train.c5 <- train(OutcomeType ~ Name.IsUnnamed + AnimalType + Weekday + Age.Days + Sex + Sex.IsIntact + Color.IsFlat + Breed.IsMix + Hour + Color.H + Color.S + Color.V, data = train.batch, method = "C5.0", metric = "ROC", trControl = trc.recv)
 ``` 
 
 ```{r dependson="c5", cache=T}
